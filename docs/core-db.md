@@ -137,6 +137,25 @@ await db.schemaRenameField(schema: string, oldName: string, newName: string): Pr
 
 Renames a field in a table.
 
+#### schemaConnect
+
+```typescript
+await db.schemaConnect(parentName: string, childName: string): Promise<void>
+```
+
+Creates a foreign key relationship between two tables. This method:
+- Creates a foreign key column named `{parentName}Id` in the child table
+- Makes it reference the `id` field of the parent table
+- Adds ON DELETE CASCADE behavior for automatic cleanup of child records
+- Creates an index on the foreign key for better query performance
+- Is idempotent (safe to call multiple times)
+
+Example:
+```typescript
+// Create a foreign key relationship between authors and books
+await db.schemaConnect('authors', 'books'); // Creates authorsId in books table
+```
+
 ### Data Operations
 
 #### insert

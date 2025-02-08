@@ -108,6 +108,51 @@ describe('CoreDB', () => {
 
       await expect(db.schemaCreateOrUpdate(invalidTableDef)).rejects.toThrow();
     });
+
+    describe('Table Relationships', () => {
+      const authorTableDef: TableDefinition = {
+        name: 'authors',
+        implementation: 'Static',
+        fields: [
+          { name: 'name', type: 'Text', required: true }
+        ]
+      };
+
+      const bookTableDef: TableDefinition = {
+        name: 'books',
+        implementation: 'Static',
+        fields: [
+          { name: 'title', type: 'Text', required: true }
+        ]
+      };
+
+      it('should create a foreign key relationship between tables', async () => {
+        await db.schemaCreateOrUpdate(authorTableDef);
+        await db.schemaCreateOrUpdate(bookTableDef);
+        await expect(db.schemaConnect('authors', 'books')).resolves.not.toThrow();
+      });
+
+      it('should throw error when parent table does not exist', async () => {
+        await db.schemaCreateOrUpdate(bookTableDef);
+        await expect(db.schemaConnect('nonexistent', 'books')).rejects.toThrow("Parent table 'nonexistent' does not exist");
+      });
+
+      it('should throw error when child table does not exist', async () => {
+        await db.schemaCreateOrUpdate(authorTableDef);
+        await expect(db.schemaConnect('authors', 'nonexistent')).rejects.toThrow("Child table 'nonexistent' does not exist");
+      });
+
+      it('should be idempotent', async () => {
+        await db.schemaCreateOrUpdate(authorTableDef);
+        await db.schemaCreateOrUpdate(bookTableDef);
+        
+        // First connection
+        await expect(db.schemaConnect('authors', 'books')).resolves.not.toThrow();
+        
+        // Second connection should not throw
+        await expect(db.schemaConnect('authors', 'books')).resolves.not.toThrow();
+      });
+    });
   });
 
   describe('CRUD Operations', () => {

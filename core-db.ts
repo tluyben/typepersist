@@ -36,7 +36,7 @@ export type WhereBoolAnd = {
 export type Where = WhereBoolOr | WhereBoolAnd | WhereCmp;
 
 export type Query = {
-  table: string[];  // At least one table is required
+  table: string[]; // At least one table is required
   field?: { [table: string]: string[] };
   query?: Where;
   sort?: Sort[];
@@ -74,7 +74,7 @@ export class CoreDB {
 
   constructor(connectionString: string) {
     if (!connectionString) {
-      throw new Error('Connection string cannot be empty');
+      throw new Error("Connection string cannot be empty");
     }
     this.knexInstance = knex({
       client: "sqlite3",
@@ -251,6 +251,36 @@ export class CoreDB {
     });
   }
 
+  async schemaConnect(parentName: string, childName: string): Promise<void> {
+    const foreignKeyField = `${parentName}Id`;
+    
+    // Check if tables exist
+    const parentExists = await this.knexInstance.schema.hasTable(parentName);
+    const childExists = await this.knexInstance.schema.hasTable(childName);
+    
+    if (!parentExists) {
+      throw new Error(`Parent table '${parentName}' does not exist`);
+    }
+    if (!childExists) {
+      throw new Error(`Child table '${childName}' does not exist`);
+    }
+
+    // Check if foreign key column already exists
+    const childColumns = await this.knexInstance(childName).columnInfo();
+    
+    // Add foreign key column and constraint if it doesn't exist
+    if (!childColumns[foreignKeyField]) {
+      await this.knexInstance.schema.alterTable(childName, (table) => {
+        table.integer(foreignKeyField)
+          .unsigned()
+          .references('id')
+          .inTable(parentName)
+          .onDelete('CASCADE')
+          .index(`idx_${childName}_${foreignKeyField}`);
+      });
+    }
+  }
+
   async startTransaction(): Promise<Knex.Transaction> {
     return await this.knexInstance.transaction();
   }
@@ -261,10 +291,10 @@ export class CoreDB {
     tx?: Knex.Transaction
   ): Promise<number> {
     const queryBuilder = tx || this.knexInstance;
-    
+
     // Get column info for type validation
     const columns = await queryBuilder(tableName).columnInfo();
-    
+
     // Validate data types
     for (const [field, value] of Object.entries(data)) {
       const column = columns[field];
@@ -277,24 +307,24 @@ export class CoreDB {
         }
 
         switch (column.type) {
-          case 'integer':
+          case "integer":
             if (!Number.isInteger(Number(value))) {
               throw new Error(`Field '${field}' must be an integer`);
             }
             break;
-          case 'float':
-          case 'double':
+          case "float":
+          case "double":
             if (isNaN(Number(value))) {
               throw new Error(`Field '${field}' must be a number`);
             }
             break;
-          case 'boolean':
-            if (typeof value !== 'boolean' && value !== 0 && value !== 1) {
+          case "boolean":
+            if (typeof value !== "boolean" && value !== 0 && value !== 1) {
               throw new Error(`Field '${field}' must be a boolean`);
             }
             break;
-          case 'datetime':
-          case 'date':
+          case "datetime":
+          case "date":
             if (!(value instanceof Date) && isNaN(Date.parse(value))) {
               throw new Error(`Field '${field}' must be a valid date`);
             }
@@ -344,7 +374,7 @@ export class CoreDB {
   // Query builder method that accepts Query type
   async query(query: Query): Promise<any[]> {
     if (!query.table || query.table.length === 0) {
-      throw new Error('At least one table must be specified in the query');
+      throw new Error("At least one table must be specified in the query");
     }
 
     let builder = this.knexInstance(query.table[0]); // Start with first table
