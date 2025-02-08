@@ -1,5 +1,50 @@
 import { Knex, knex } from "knex-fork";
 
+export type Sort = {
+  fieldId: string;
+  direction: "asc" | "desc";
+};
+
+export type WhereCmp = {
+  left: string | number;
+  leftType: "Field" | "Array" | "Variable" | "SearchString" | "Value";
+  cmp:
+    | "eq"
+    | "neq"
+    | "ne"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "like"
+    | "nlike"
+    | "in"
+    | "nin"
+    | "not";
+  right: string | number | Date | number[];
+  rightType: "Field" | "Array" | "Variable" | "SearchString" | "Value";
+};
+
+export type WhereBoolOr = {
+  Or: Where[];
+};
+
+export type WhereBoolAnd = {
+  And: Where[];
+};
+
+export type Where = WhereBoolOr | WhereBoolAnd | WhereCmp;
+
+export type Query = {
+  table?: number[];
+  field?: { [table: number]: number[] };
+  query?: Where;
+  sort?: Sort[];
+  page?: number;
+  limit?: number;
+  groupFields?: string[];
+};
+
 export type FieldDef = {
   id?: number;
   name: string;
@@ -30,6 +75,9 @@ export class CoreDB {
   private currentDB?: string;
 
   constructor(connectionString: string) {
+    if (!connectionString) {
+      throw new Error('Connection string cannot be empty');
+    }
     this.knexInstance = knex({
       client: "sqlite3",
       connection: {
@@ -80,7 +128,29 @@ export class CoreDB {
 
           for (const field of tableDefinition.fields) {
             const knexType = this.getKnexFieldType(field);
-            let column: any = table[knexType](field.name);
+            let column;
+            switch (knexType) {
+              case "text":
+                column = table.text(field.name);
+                break;
+              case "integer":
+                column = table.integer(field.name);
+                break;
+              case "float":
+                column = table.float(field.name);
+                break;
+              case "boolean":
+                column = table.boolean(field.name);
+                break;
+              case "datetime":
+                column = table.datetime(field.name);
+                break;
+              case "time":
+                column = table.time(field.name);
+                break;
+              default:
+                throw new Error(`Invalid column type: ${knexType}`);
+            }
 
             if (field.required) {
               column.notNullable();
@@ -113,7 +183,29 @@ export class CoreDB {
           for (const field of tableDefinition.fields) {
             if (!existingColumns[field.name]) {
               const knexType = this.getKnexFieldType(field);
-              let column: any = table[knexType](field.name);
+              let column;
+              switch (knexType) {
+                case "text":
+                  column = table.text(field.name);
+                  break;
+                case "integer":
+                  column = table.integer(field.name);
+                  break;
+                case "float":
+                  column = table.float(field.name);
+                  break;
+                case "boolean":
+                  column = table.boolean(field.name);
+                  break;
+                case "datetime":
+                  column = table.datetime(field.name);
+                  break;
+                case "time":
+                  column = table.time(field.name);
+                  break;
+                default:
+                  throw new Error(`Invalid column type: ${knexType}`);
+              }
 
               if (field.required) {
                 column.notNullable();
@@ -161,8 +253,8 @@ export class CoreDB {
     });
   }
 
-  startTransaction(): Knex.Transaction {
-    return this.knexInstance.transaction();
+  async startTransaction(): Promise<Knex.Transaction> {
+    return await this.knexInstance.transaction();
   }
 
   async insert(
@@ -171,6 +263,48 @@ export class CoreDB {
     tx?: Knex.Transaction
   ): Promise<number> {
     const queryBuilder = tx || this.knexInstance;
+    
+    // Get column info for type validation
+    const columns = await queryBuilder(tableName).columnInfo();
+    
+    // Validate data types
+    for (const [field, value] of Object.entries(data)) {
+      const column = columns[field];
+      if (column) {
+        if (value === null || value === undefined) {
+          if (column.nullable === false) {
+            throw new Error(`Field '${field}' cannot be null`);
+          }
+          continue;
+        }
+
+        switch (column.type) {
+          case 'integer':
+            if (!Number.isInteger(Number(value))) {
+              throw new Error(`Field '${field}' must be an integer`);
+            }
+            break;
+          case 'float':
+          case 'double':
+            if (isNaN(Number(value))) {
+              throw new Error(`Field '${field}' must be a number`);
+            }
+            break;
+          case 'boolean':
+            if (typeof value !== 'boolean' && value !== 0 && value !== 1) {
+              throw new Error(`Field '${field}' must be a boolean`);
+            }
+            break;
+          case 'datetime':
+          case 'date':
+            if (!(value instanceof Date) && isNaN(Date.parse(value))) {
+              throw new Error(`Field '${field}' must be a valid date`);
+            }
+            break;
+        }
+      }
+    }
+
     const [id] = await queryBuilder(tableName).insert(data);
     return id;
   }
@@ -235,9 +369,13 @@ export class CoreDB {
     return builder;
   }
 
-  private buildWhereClause(builder: Knex.QueryBuilder, where: Where): void {
+  private buildWhereClause(
+    builder: Knex.QueryBuilder,
+    where: Where
+  ): Knex.QueryBuilder {
+    let result = builder;
     if ("Or" in where) {
-      builder.where((builder) => {
+      result = builder.where((builder) => {
         for (const condition of where.Or) {
           builder.orWhere((builder) => {
             this.buildWhereClause(builder, condition);
@@ -245,7 +383,7 @@ export class CoreDB {
         }
       });
     } else if ("And" in where) {
-      builder.where((builder) => {
+      result = builder.where((builder) => {
         for (const condition of where.And) {
           builder.where((builder) => {
             this.buildWhereClause(builder, condition);
@@ -283,9 +421,11 @@ export class CoreDB {
           operator = "NOT LIKE";
           break;
         case "in":
-          return builder.whereIn(left as string, right as any[]);
+          builder.whereIn(left as string, right as any[]);
+          return builder;
         case "nin":
-          return builder.whereNotIn(left as string, right as any[]);
+          builder.whereNotIn(left as string, right as any[]);
+          return builder;
         case "not":
           operator = "!=";
           break;
@@ -294,11 +434,12 @@ export class CoreDB {
       }
 
       if (cmp === "like" || cmp === "nlike") {
-        builder.where(left as string, operator, `%${right}%`);
+        result = builder.where(left as string, operator, `%${right}%`);
       } else {
-        builder.where(left as string, operator, right);
+        result = builder.where(left as string, operator, right);
       }
     }
+    return result;
   }
 
   async close(): Promise<void> {
