@@ -1,8 +1,8 @@
-import { CoreDB, TableDefinition } from '../core-db';
-import fs from 'fs';
+import { CoreDB, TableDefinition } from "../core-db";
+import fs from "fs";
 
-describe('Table Joins', () => {
-  const TEST_DB = 'test-joins.sqlite';
+describe("Table Joins", () => {
+  const TEST_DB = "test-joins.sqlite";
   let db: CoreDB;
 
   beforeEach(() => {
@@ -16,198 +16,206 @@ describe('Table Joins', () => {
     }
   });
 
-  describe('Two Table Joins', () => {
+  describe("Two Table Joins", () => {
     const authorTableDef: TableDefinition = {
-      name: 'authors',
-      implementation: 'Static',
+      name: "authors",
+      implementation: "Static",
       fields: [
-        { name: 'name', type: 'Text', required: true },
-        { name: 'country', type: 'Text' }
-      ]
+        { name: "name", type: "Text", required: true },
+        { name: "country", type: "Text" },
+      ],
     };
 
     const bookTableDef: TableDefinition = {
-      name: 'books',
-      implementation: 'Static',
+      name: "books",
+      implementation: "Static",
       fields: [
-        { name: 'title', type: 'Text', required: true },
-        { name: 'genre', type: 'Text' },
-        { name: 'year', type: 'Integer' }
-      ]
+        { name: "title", type: "Text", required: true },
+        { name: "genre", type: "Text" },
+        { name: "year", type: "Integer" },
+      ],
     };
 
     beforeEach(async () => {
       // Create tables and relationship
       await db.schemaCreateOrUpdate(authorTableDef);
       await db.schemaCreateOrUpdate(bookTableDef);
-      await db.schemaConnect('authors', 'books');
+      await db.schemaConnect("authors", "books");
 
       // Insert test data
-      const stephenKingId = await db.insert('authors', { 
-        name: 'Stephen King',
-        country: 'USA'
+      const stephenKingId = await db.insert("authors", {
+        name: "Stephen King",
+        country: "USA",
       });
-      await db.insert('books', {
-        title: 'The Shining',
-        genre: 'horror',
+      await db.insert("books", {
+        title: "The Shining",
+        genre: "horror",
         year: 1977,
-        authorsId: stephenKingId
+        authorsId: stephenKingId,
       });
-      await db.insert('books', {
-        title: 'IT',
-        genre: 'horror',
+      await db.insert("books", {
+        title: "IT",
+        genre: "horror",
         year: 1986,
-        authorsId: stephenKingId
+        authorsId: stephenKingId,
       });
-      await db.insert('books', {
-        title: 'The Stand',
-        genre: 'post-apocalyptic',
+      await db.insert("books", {
+        title: "The Stand",
+        genre: "post-apocalyptic",
         year: 1978,
-        authorsId: stephenKingId
+        authorsId: stephenKingId,
       });
 
-      const jrrTolkienId = await db.insert('authors', {
-        name: 'J.R.R. Tolkien',
-        country: 'UK'
+      const jrrTolkienId = await db.insert("authors", {
+        name: "J.R.R. Tolkien",
+        country: "UK",
       });
-      await db.insert('books', {
-        title: 'The Hobbit',
-        genre: 'fantasy',
+      await db.insert("books", {
+        title: "The Hobbit",
+        genre: "fantasy",
         year: 1937,
-        authorsId: jrrTolkienId
+        authorsId: jrrTolkienId,
       });
-      await db.insert('books', {
-        title: 'The Fellowship of the Ring',
-        genre: 'fantasy',
+      await db.insert("books", {
+        title: "The Fellowship of the Ring",
+        genre: "fantasy",
         year: 1954,
-        authorsId: jrrTolkienId
+        authorsId: jrrTolkienId,
       });
     });
 
-    it('should join tables and return nested results', async () => {
+    it("should join tables and return nested results", async () => {
       const results = await db.query({
-        table: [
-          { table: 'authors' },
-          { table: 'books' }
-        ]
+        table: [{ table: "authors" }, { table: "books" }],
       });
 
       expect(results).toHaveLength(2);
       expect(results[0].books).toBeDefined();
       expect(results[1].books).toBeDefined();
-      
-      const stephenKing = results.find(author => author.name === 'Stephen King');
+
+      const stephenKing = results.find(
+        (author) => author.name === "Stephen King"
+      );
       expect(stephenKing.books).toHaveLength(3);
-      
-      const tolkien = results.find(author => author.name === 'J.R.R. Tolkien');
+
+      const tolkien = results.find(
+        (author) => author.name === "J.R.R. Tolkien"
+      );
       expect(tolkien.books).toHaveLength(2);
     });
 
-    it('should filter parent records', async () => {
+    it("should filter parent records", async () => {
       const results = await db.query({
-        table: [
-          { table: 'authors' },
-          { table: 'books' }
-        ],
+        table: [{ table: "authors" }, { table: "books" }],
         query: {
-          left: 'country',
-          leftType: 'Field',
-          cmp: 'eq',
-          right: 'USA',
-          rightType: 'Value'
-        }
+          left: "country",
+          leftType: "Field",
+          cmp: "eq",
+          right: "USA",
+          rightType: "Value",
+        },
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0].name).toBe('Stephen King');
+      expect(results[0].name).toBe("Stephen King");
       expect(results[0].books).toHaveLength(3);
     });
 
-    it('should filter child records', async () => {
+    it("should filter child records", async () => {
       const results = await db.query({
         table: [
-          { table: 'authors' },
-          { 
-            table: 'books',
+          { table: "authors" },
+          {
+            table: "books",
             query: {
-              left: 'genre',
-              leftType: 'Field',
-              cmp: 'eq',
-              right: 'horror',
-              rightType: 'Value'
-            }
-          }
-        ]
+              left: "genre",
+              leftType: "Field",
+              cmp: "eq",
+              right: "horror",
+              rightType: "Value",
+            },
+          },
+        ],
       });
 
       expect(results).toHaveLength(2);
-      
-      const stephenKing = results.find(author => author.name === 'Stephen King');
+
+      const stephenKing = results.find(
+        (author) => author.name === "Stephen King"
+      );
       expect(stephenKing.books).toHaveLength(2);
-      expect(stephenKing.books.every((book: { genre: string }) => book.genre === 'horror')).toBe(true);
-      
-      const tolkien = results.find(author => author.name === 'J.R.R. Tolkien');
+      expect(
+        stephenKing.books.every(
+          (book: { genre: string }) => book.genre === "horror"
+        )
+      ).toBe(true);
+
+      const tolkien = results.find(
+        (author) => author.name === "J.R.R. Tolkien"
+      );
       expect(tolkien.books).toHaveLength(0);
     });
 
-    it('should filter both parent and child records', async () => {
+    it("should filter both parent and child records", async () => {
       const results = await db.query({
         table: [
-          { 
-            table: 'authors',
+          {
+            table: "authors",
             query: {
-              left: 'country',
-              leftType: 'Field',
-              cmp: 'eq',
-              right: 'USA',
-              rightType: 'Value'
-            }
+              left: "country",
+              leftType: "Field",
+              cmp: "eq",
+              right: "USA",
+              rightType: "Value",
+            },
           },
-          { 
-            table: 'books',
+          {
+            table: "books",
             query: {
-              left: 'genre',
-              leftType: 'Field',
-              cmp: 'eq',
-              right: 'horror',
-              rightType: 'Value'
-            }
-          }
-        ]
+              left: "genre",
+              leftType: "Field",
+              cmp: "eq",
+              right: "horror",
+              rightType: "Value",
+            },
+          },
+        ],
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0].name).toBe('Stephen King');
+      expect(results[0].name).toBe("Stephen King");
       expect(results[0].books).toHaveLength(2);
-      expect(results[0].books.every((book: { genre: string }) => book.genre === 'horror')).toBe(true);
+      expect(
+        results[0].books.every(
+          (book: { genre: string }) => book.genre === "horror"
+        )
+      ).toBe(true);
     });
   });
 
-  describe('Three Table Joins', () => {
+  describe("Three Table Joins", () => {
     const publisherTableDef: TableDefinition = {
-      name: 'publishers',
-      implementation: 'Static',
+      name: "publishers",
+      implementation: "Static",
       fields: [
-        { name: 'name', type: 'Text', required: true },
-        { name: 'country', type: 'Text' }
-      ]
+        { name: "name", type: "Text", required: true },
+        { name: "country", type: "Text" },
+      ],
     };
 
     const authorTableDef: TableDefinition = {
-      name: 'authors',
-      implementation: 'Static',
-      fields: [
-        { name: 'name', type: 'Text', required: true }
-      ]
+      name: "authors",
+      implementation: "Static",
+      fields: [{ name: "name", type: "Text", required: true }],
     };
 
     const bookTableDef: TableDefinition = {
-      name: 'books',
-      implementation: 'Static',
+      name: "books",
+      implementation: "Static",
       fields: [
-        { name: 'title', type: 'Text', required: true },
-        { name: 'genre', type: 'Text' }
-      ]
+        { name: "title", type: "Text", required: true },
+        { name: "genre", type: "Text" },
+      ],
     };
 
     beforeEach(async () => {
@@ -215,128 +223,130 @@ describe('Table Joins', () => {
       await db.schemaCreateOrUpdate(publisherTableDef);
       await db.schemaCreateOrUpdate(authorTableDef);
       await db.schemaCreateOrUpdate(bookTableDef);
-      
-      await db.schemaConnect('publishers', 'authors');
-      await db.schemaConnect('authors', 'books');
+
+      await db.schemaConnect("publishers", "authors");
+      await db.schemaConnect("authors", "books");
 
       // Insert test data
-      const vikingId = await db.insert('publishers', {
-        name: 'Viking Press',
-        country: 'USA'
+      const vikingId = await db.insert("publishers", {
+        name: "Viking Press",
+        country: "USA",
       });
 
-      const stephenKingId = await db.insert('authors', {
-        name: 'Stephen King',
-        publishersId: vikingId
+      const stephenKingId = await db.insert("authors", {
+        name: "Stephen King",
+        publishersId: vikingId,
       });
 
-      await db.insert('books', {
-        title: 'The Shining',
-        genre: 'horror',
-        authorsId: stephenKingId
+      await db.insert("books", {
+        title: "The Shining",
+        genre: "horror",
+        authorsId: stephenKingId,
       });
-      await db.insert('books', {
-        title: 'IT',
-        genre: 'horror',
-        authorsId: stephenKingId
+      await db.insert("books", {
+        title: "IT",
+        genre: "horror",
+        authorsId: stephenKingId,
       });
     });
 
-    it('should join three tables with nested results', async () => {
+    it("should join three tables with nested results", async () => {
       const results = await db.query({
         table: [
-          { table: 'publishers' },
-          { table: 'authors' },
-          { table: 'books' }
-        ]
+          { table: "publishers" },
+          { table: "authors" },
+          { table: "books" },
+        ],
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0].name).toBe('Viking Press');
+      expect(results[0].name).toBe("Viking Press");
       expect(results[0].authors).toHaveLength(1);
-      expect(results[0].authors[0].name).toBe('Stephen King');
+      expect(results[0].authors[0].name).toBe("Stephen King");
       expect(results[0].authors[0].books).toHaveLength(2);
     });
 
-    it('should filter records at any level', async () => {
+    it("should filter records at any level", async () => {
       const results = await db.query({
         table: [
-          { 
-            table: 'publishers',
+          {
+            table: "publishers",
             query: {
-              left: 'country',
-              leftType: 'Field',
-              cmp: 'eq',
-              right: 'USA',
-              rightType: 'Value'
-            }
+              left: "country",
+              leftType: "Field",
+              cmp: "eq",
+              right: "USA",
+              rightType: "Value",
+            },
           },
-          { table: 'authors' },
-          { 
-            table: 'books',
+          { table: "authors" },
+          {
+            table: "books",
             query: {
-              left: 'genre',
-              leftType: 'Field',
-              cmp: 'eq',
-              right: 'horror',
-              rightType: 'Value'
-            }
-          }
-        ]
+              left: "genre",
+              leftType: "Field",
+              cmp: "eq",
+              right: "horror",
+              rightType: "Value",
+            },
+          },
+        ],
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0].name).toBe('Viking Press');
+      expect(results[0].name).toBe("Viking Press");
       expect(results[0].authors).toHaveLength(1);
       expect(results[0].authors[0].books).toHaveLength(2);
-      expect(results[0].authors[0].books.every((book: { genre: string }) => book.genre === 'horror')).toBe(true);
+      expect(
+        results[0].authors[0].books.every(
+          (book: { genre: string }) => book.genre === "horror"
+        )
+      ).toBe(true);
     });
   });
 
-  describe('Error Cases', () => {
-    it('should throw error when tables are not properly connected', async () => {
+  describe("Error Cases", () => {
+    it("should throw error when tables are not properly connected", async () => {
       await db.schemaCreateOrUpdate({
-        name: 'authors',
-        implementation: 'Static',
-        fields: [{ name: 'name', type: 'Text' }]
+        name: "authors",
+        implementation: "Static",
+        fields: [{ name: "name", type: "Text" }],
       });
 
       await db.schemaCreateOrUpdate({
-        name: 'books',
-        implementation: 'Static',
-        fields: [{ name: 'title', type: 'Text' }]
+        name: "books",
+        implementation: "Static",
+        fields: [{ name: "title", type: "Text" }],
       });
 
-      await expect(db.query({
-        table: [
-          { table: 'authors' },
-          { table: 'books' }
-        ]
-      })).rejects.toThrow(/No foreign key connection found/);
+      await expect(
+        db.query({
+          table: [{ table: "authors" }, { table: "books" }],
+        })
+      ).rejects.toThrow(/No foreign key connection found/);
     });
 
-    it('should throw error when tables are connected in wrong order', async () => {
+    it("should throw error when tables are connected in wrong order", async () => {
       await db.schemaCreateOrUpdate({
-        name: 'authors',
-        implementation: 'Static',
-        fields: [{ name: 'name', type: 'Text' }]
+        name: "authors",
+        implementation: "Static",
+        fields: [{ name: "name", type: "Text" }],
       });
 
       await db.schemaCreateOrUpdate({
-        name: 'books',
-        implementation: 'Static',
-        fields: [{ name: 'title', type: 'Text' }]
+        name: "books",
+        implementation: "Static",
+        fields: [{ name: "title", type: "Text" }],
       });
 
-      await db.schemaConnect('authors', 'books');
+      await db.schemaConnect("authors", "books");
 
       // Wrong order: books should come after authors
-      await expect(db.query({
-        table: [
-          { table: 'books' },
-          { table: 'authors' }
-        ]
-      })).rejects.toThrow(/No foreign key connection found/);
+      await expect(
+        db.query({
+          table: [{ table: "books" }, { table: "authors" }],
+        })
+      ).rejects.toThrow(/No foreign key connection found/);
     });
   });
 });
