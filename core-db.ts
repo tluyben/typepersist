@@ -35,8 +35,13 @@ export type WhereBoolAnd = {
 
 export type Where = WhereBoolOr | WhereBoolAnd | WhereCmp;
 
+export type TableQuery = {
+  table: string;
+  query?: Where;
+};
+
 export type Query = {
-  table: string[]; // At least one table is required
+  table: TableQuery[]; // At least one table is required
   field?: { [table: string]: string[] };
   query?: Where;
   sort?: Sort[];
@@ -372,106 +377,164 @@ export class CoreDB {
   }
 
   // Query builder method that accepts Query type
+  private async validateForeignKeyConnection(tables: TableQuery[]): Promise<void> {
+    if (tables.length <= 1) return;
+
+    for (let i = 1; i < tables.length; i++) {
+      const parentTable = tables[i - 1].table;
+      const childTable = tables[i].table;
+      
+      // Check if foreign key exists
+      const childColumns = await this.knexInstance(childTable).columnInfo();
+      const expectedForeignKey = `${parentTable}Id`;
+      
+      if (!childColumns[expectedForeignKey]) {
+        throw new Error(
+          `No foreign key connection found: Table '${childTable}' must have a foreign key '${expectedForeignKey}' referencing '${parentTable}'`
+        );
+      }
+    }
+  }
+
   async query(query: Query): Promise<any[]> {
     if (!query.table || query.table.length === 0) {
       throw new Error("At least one table must be specified in the query");
     }
 
-    let builder = this.knexInstance(query.table[0]); // Start with first table
+    // Validate foreign key connections
+    await this.validateForeignKeyConnection(query.table);
 
-    if (query.query) {
-      builder = builder.where((builder) => {
-        this.buildWhereClause(builder, query.query!);
-      });
+    // Start with parent table query
+    const parentTable = query.table[0].table;
+    let parentQuery = this.knexInstance(parentTable).select('*');
+
+    // Apply parent table filters
+    if (query.table[0].query) {
+      const prefixedQuery = this.addTablePrefixToWhere(query.table[0].query!, parentTable);
+      parentQuery = this.buildWhereClause(parentQuery, prefixedQuery);
     }
 
+    // Apply main query if it exists
+    if (query.query) {
+      const prefixedQuery = this.addTablePrefixToWhere(query.query!, parentTable);
+      parentQuery = this.buildWhereClause(parentQuery, prefixedQuery);
+    }
+
+    // Apply sorting and pagination
     if (query.sort) {
       for (const sort of query.sort) {
-        builder = builder.orderBy(sort.fieldId, sort.direction);
+        parentQuery = parentQuery.orderBy(sort.fieldId, sort.direction);
       }
     }
 
     if (query.limit) {
-      builder = builder.limit(query.limit);
+      parentQuery = parentQuery.limit(query.limit);
       if (query.page) {
-        builder = builder.offset((query.page - 1) * query.limit);
+        parentQuery = parentQuery.offset((query.page - 1) * query.limit);
       }
     }
 
-    return builder;
+    // Execute parent query
+    const parentResults = await parentQuery;
+
+    // For each parent record, fetch its children
+    const results = await Promise.all(
+      parentResults.map(parent => this.fetchChildren(parent, query.table, 1))
+    );
+
+    return results;
   }
 
-  private buildWhereClause(
-    builder: Knex.QueryBuilder,
-    where: Where
-  ): Knex.QueryBuilder {
-    let result = builder;
+  private async fetchChildren(parent: any, tables: TableQuery[], depth: number): Promise<any> {
+    if (depth >= tables.length) {
+      return parent;
+    }
+
+    const result = { ...parent };
+    const childTable = tables[depth].table;
+    const foreignKey = `${tables[depth-1].table}Id`;
+    
+    let childQuery = this.knexInstance(childTable)
+      .where(foreignKey, parent.id);
+
+    // Apply child table filters
+    if (tables[depth].query) {
+      const prefixedQuery = this.addTablePrefixToWhere(tables[depth].query!, childTable);
+      childQuery = this.buildWhereClause(childQuery, prefixedQuery);
+    }
+
+    const children = await childQuery;
+    
+    // Recursively fetch children for each child
+    const nestedChildren = await Promise.all(
+      children.map(child => this.fetchChildren(child, tables, depth + 1))
+    );
+
+    result[childTable] = nestedChildren;
+    return result;
+  }
+
+  private addTablePrefixToWhere(where: Where, tableName: string): Where {
+    if ('Or' in where) {
+      return {
+        Or: where.Or.map(w => this.addTablePrefixToWhere(w, tableName))
+      };
+    } else if ('And' in where) {
+      return {
+        And: where.And.map(w => this.addTablePrefixToWhere(w, tableName))
+      };
+    } else {
+      return {
+        ...where,
+        left: `${tableName}.${where.left}`
+      };
+    }
+  }
+
+  private buildWhereClause(builder: Knex.QueryBuilder, where: Where): Knex.QueryBuilder {
     if ("Or" in where) {
-      result = builder.where((builder) => {
-        for (const condition of where.Or) {
-          builder.orWhere((builder) => {
-            this.buildWhereClause(builder, condition);
-          });
-        }
+      return builder.where((qb) => {
+        where.Or.forEach((condition, idx) => {
+          const method = idx === 0 ? 'where' : 'orWhere';
+          qb[method]((subQb) => this.buildWhereClause(subQb, condition));
+        });
       });
     } else if ("And" in where) {
-      result = builder.where((builder) => {
-        for (const condition of where.And) {
-          builder.where((builder) => {
-            this.buildWhereClause(builder, condition);
-          });
-        }
+      return builder.where((qb) => {
+        where.And.forEach((condition) => {
+          qb.where((subQb) => this.buildWhereClause(subQb, condition));
+        });
       });
     } else {
       const { left, right, cmp } = where;
-      let operator: string;
-
       switch (cmp) {
         case "eq":
-          operator = "=";
-          break;
+          return builder.where(left as string, '=', right);
         case "neq":
         case "ne":
-          operator = "!=";
-          break;
+          return builder.where(left as string, '!=', right);
         case "gt":
-          operator = ">";
-          break;
+          return builder.where(left as string, '>', right);
         case "gte":
-          operator = ">=";
-          break;
+          return builder.where(left as string, '>=', right);
         case "lt":
-          operator = "<";
-          break;
+          return builder.where(left as string, '<', right);
         case "lte":
-          operator = "<=";
-          break;
+          return builder.where(left as string, '<=', right);
         case "like":
-          operator = "LIKE";
-          break;
+          return builder.where(left as string, 'LIKE', `%${right}%`);
         case "nlike":
-          operator = "NOT LIKE";
-          break;
+          return builder.where(left as string, 'NOT LIKE', `%${right}%`);
         case "in":
-          builder.whereIn(left as string, right as any[]);
-          return builder;
+          return builder.whereIn(left as string, right as any[]);
         case "nin":
-          builder.whereNotIn(left as string, right as any[]);
-          return builder;
+          return builder.whereNotIn(left as string, right as any[]);
         case "not":
-          operator = "!=";
-          break;
+          return builder.where(left as string, '!=', right);
         default:
           throw new Error(`Unsupported operator: ${cmp}`);
       }
-
-      if (cmp === "like" || cmp === "nlike") {
-        result = builder.where(left as string, operator, `%${right}%`);
-      } else {
-        result = builder.where(left as string, operator, right);
-      }
     }
-    return result;
   }
 
   async close(): Promise<void> {

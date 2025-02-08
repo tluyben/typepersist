@@ -245,7 +245,7 @@ describe('CoreDB', () => {
 
     it('should query with simple where clause', async () => {
       const result = await db.query({
-        table: ['users'],
+        table: [{ table: 'users' }],
         query: {
           left: 'age',
           leftType: 'Field',
@@ -261,7 +261,7 @@ describe('CoreDB', () => {
 
     it('should query with OR condition', async () => {
       const result = await db.query({
-        table: ['users'],
+        table: [{ table: 'users' }],
         query: {
           Or: [
             {
@@ -289,7 +289,7 @@ describe('CoreDB', () => {
 
     it('should query with AND condition', async () => {
       const result = await db.query({
-        table: ['users'],
+        table: [{ table: 'users' }],
         query: {
           And: [
             {
@@ -316,7 +316,7 @@ describe('CoreDB', () => {
 
     it('should sort results', async () => {
       const result = await db.query({
-        table: ['users'],
+        table: [{ table: 'users' }],
         sort: [{ fieldId: 'age', direction: 'desc' }]
       });
 
@@ -328,7 +328,7 @@ describe('CoreDB', () => {
 
     it('should handle pagination', async () => {
       const result = await db.query({
-        table: ['users'],
+        table: [{ table: 'users' }],
         sort: [{ fieldId: 'age', direction: 'asc' }],
         limit: 2,
         page: 1
@@ -381,7 +381,7 @@ describe('CoreDB', () => {
         await tx.commit();
 
         // Verify data was saved
-        const result = await db.query({ table: ['users'] });
+        const result = await db.query({ table: [{ table: 'users' }] });
         expect(result).toHaveLength(1);
       } catch (error) {
         await tx.rollback();
@@ -409,7 +409,7 @@ describe('CoreDB', () => {
       }
 
       // Verify no data was saved
-      const result = await db.query({ table: ['users'] });
+      const result = await db.query({ table: [{ table: 'users' }] });
       expect(result).toHaveLength(0);
     });
   });
@@ -444,7 +444,7 @@ describe('CoreDB', () => {
     });
 
     it('should handle non-existent tables', async () => {
-      await expect(db.query({ table: ['non_existent_table'] })).rejects.toThrow();
+      await expect(db.query({ table: [{ table: 'non_existent_table' }] })).rejects.toThrow();
     });
 
     it('should handle non-existent fields in queries', async () => {
@@ -459,7 +459,7 @@ describe('CoreDB', () => {
       await db.schemaCreateOrUpdate(tableDef);
 
       await expect(db.query({
-        table: ['users'],
+        table: [{ table: 'users' }],
         query: {
           left: 'non_existent_field',
           leftType: 'Field',

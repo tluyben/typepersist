@@ -201,15 +201,36 @@ await db.query(query: Query): Promise<any[]>
 Query structure:
 
 ```typescript
+type TableQuery = {
+  table: string;
+  query?: Where;  // Optional query specific to this table
+};
+
 type Query = {
-  table: string[];  // At least one table is required
+  table: TableQuery[];  // At least one table is required
   field?: { [table: string]: string[] };
-  query?: Where;
+  query?: Where;  // Main query that applies to all tables
   sort?: Sort[];
   page?: number;
   limit?: number;
-  groupFields?: GroupField[];
+  groupFields?: string[];
 };
+```
+
+When using multiple tables in a query, they must have foreign key relationships established using `schemaConnect`. Each table after the first one must have a foreign key reference to one of the previous tables in the list. The results will be returned in a nested structure where child records are included as arrays under their parent record.
+
+For example, if you have authors and books tables connected with a foreign key, the results would look like:
+```typescript
+[
+  {
+    id: 1,
+    name: "Stephen King",
+    books: [
+      { id: 1, title: "The Shining", genre: "horror" },
+      { id: 2, title: "IT", genre: "horror" }
+    ]
+  }
+]
 ```
 
 Where conditions can be:
@@ -287,11 +308,94 @@ await db.update("users", userId, {
 await db.delete("users", [userId]);
 ```
 
-### Complex Queries
+### Table Relationships and Joins
 
 ```typescript
+// Define tables
+await db.schemaCreateOrUpdate({
+  name: "authors",
+  implementation: "Static",
+  fields: [
+    { name: "name", type: "Text", required: true }
+  ]
+});
+
+await db.schemaCreateOrUpdate({
+  name: "books",
+  implementation: "Static",
+  fields: [
+    { name: "title", type: "Text", required: true },
+    { name: "genre", type: "Text" }
+  ]
+});
+
+// Create foreign key relationship
+await db.schemaConnect('authors', 'books');
+
+// Insert data
+const authorId = await db.insert("authors", { name: "Stephen King" });
+await db.insert("books", { 
+  title: "The Shining",
+  genre: "horror",
+  authorsId: authorId 
+});
+await db.insert("books", { 
+  title: "IT",
+  genre: "horror",
+  authorsId: authorId 
+});
+
+// Query authors with their horror books
 const results = await db.query({
-  table: ["users"],
+  table: [
+    { table: 'authors' },
+    { 
+      table: 'books',
+      query: {
+        left: 'genre',
+        leftType: 'Field',
+        cmp: 'eq',
+        right: 'horror',
+        rightType: 'Value'
+      }
+    }
+  ]
+});
+
+// Results will be nested:
+// [
+//   {
+//     id: 1,
+//     name: "Stephen King",
+//     books: [
+//       { id: 1, title: "The Shining", genre: "horror" },
+//       { id: 2, title: "IT", genre: "horror" }
+//     ]
+//   }
+// ]
+```
+
+### Complex Queries with Joins
+
+```typescript
+// First establish the relationship
+await db.schemaConnect('authors', 'books');
+
+// Query authors and their horror books
+const results = await db.query({
+  table: [
+    { table: 'authors' },
+    { 
+      table: 'books',
+      query: {
+        left: 'genre',
+        leftType: 'Field',
+        cmp: 'eq',
+        right: 'horror',
+        rightType: 'Value'
+      }
+    }
+  ],
   query: {
     And: [
       {
@@ -399,9 +503,8 @@ try {
 ## Limitations
 
 1. Currently optimized for SQLite
-2. No support for complex joins
-3. Limited support for advanced SQL features
-4. No built-in migration system
+2. Limited support for advanced SQL features
+3. No built-in migration system
 
 ## Future Improvements
 
