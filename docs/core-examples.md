@@ -3,7 +3,6 @@ const db = new CoreDB('path/to/database.sqlite');
 
 // Create table
 const tableDef: TableDefinition = {
-id: 1,
 name: 'users',
 implementation: 'Static',
 fields: [
@@ -25,27 +24,28 @@ await tx.rollback();
 throw error;
 }
 
-// Query with the same format as before
-const result = await db.query('users', {
-query: {
-Or: [
-{
-left: 'name',
-leftType: 'Field',
-cmp: 'like',
-right: 'Jo',
-rightType: 'SearchString'
-},
-{
-left: 'age',
-leftType: 'Field',
-cmp: 'gt',
-right: 25,
-rightType: 'SearchString'
-}
-]
-},
-sort: [{ fieldId: 'name', direction: 'asc' }],
-limit: 10,
-page: 1
+// Query example
+const result = await db.query({
+  table: ['users'],
+  query: {
+    Or: [
+      {
+        left: 'name',
+        leftType: 'Field',
+        cmp: 'like',
+        right: 'Jo',
+        rightType: 'SearchString'
+      },
+      {
+        left: 'age',
+        leftType: 'Field',
+        cmp: 'gt',
+        right: 25,
+        rightType: 'SearchString'
+      }
+    ]
+  },
+  sort: [{ fieldId: 'name', direction: 'asc' }],
+  limit: 10,
+  page: 1
 });

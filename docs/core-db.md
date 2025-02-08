@@ -20,7 +20,6 @@ const db = new CoreDB("path/to/database.sqlite");
 
 // Create or update schema
 await db.schemaCreateOrUpdate({
-  id: 1,
   name: "users",
   implementation: "Static",
   fields: [
@@ -68,7 +67,6 @@ TableDefinition structure:
 
 ```typescript
 type TableDefinition = {
-  id: number;
   name: string;
   implementation: "Static" | "Dynamic";
   description?: string;
@@ -80,7 +78,6 @@ FieldDef structure:
 
 ```typescript
 type FieldDef = {
-  id?: number;
   name: string;
   type: string;
   minimum?: number;
@@ -179,15 +176,15 @@ Deletes records by their IDs.
 The query method supports a flexible query structure for complex queries:
 
 ```typescript
-await db.query(tableName: string, query: Query): Promise<any[]>
+await db.query(query: Query): Promise<any[]>
 ```
 
 Query structure:
 
 ```typescript
 type Query = {
-  table: number[];
-  field?: { [table: number]: number[] };
+  table: string[];  // At least one table is required
+  field?: { [table: string]: string[] };
   query?: Where;
   sort?: Sort[];
   page?: number;
@@ -274,7 +271,8 @@ await db.delete("users", [userId]);
 ### Complex Queries
 
 ```typescript
-const results = await db.query("users", {
+const results = await db.query({
+  table: ["users"],
   query: {
     And: [
       {

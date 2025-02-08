@@ -36,8 +36,8 @@ export type WhereBoolAnd = {
 export type Where = WhereBoolOr | WhereBoolAnd | WhereCmp;
 
 export type Query = {
-  table?: number[];
-  field?: { [table: number]: number[] };
+  table: string[];  // At least one table is required
+  field?: { [table: string]: string[] };
   query?: Where;
   sort?: Sort[];
   page?: number;
@@ -46,7 +46,6 @@ export type Query = {
 };
 
 export type FieldDef = {
-  id?: number;
   name: string;
   type: string;
   minimum?: number;
@@ -63,7 +62,6 @@ export type FieldDef = {
 };
 
 export type TableDefinition = {
-  id: number;
   name: string;
   implementation: "Static" | "Dynamic";
   description?: string;
@@ -343,9 +341,13 @@ export class CoreDB {
     await queryBuilder(tableName).whereIn("id", ids).delete();
   }
 
-  // Query builder method that takes the same input format as your original implementation
-  async query(tableName: string, query: Query): Promise<any[]> {
-    let builder = this.knexInstance(tableName);
+  // Query builder method that accepts Query type
+  async query(query: Query): Promise<any[]> {
+    if (!query.table || query.table.length === 0) {
+      throw new Error('At least one table must be specified in the query');
+    }
+
+    let builder = this.knexInstance(query.table[0]); // Start with first table
 
     if (query.query) {
       builder = builder.where((builder) => {

@@ -31,7 +31,6 @@ describe('CoreDB', () => {
 
   describe('Schema Management', () => {
     const userTableDef: TableDefinition = {
-      id: 1,
       name: 'users',
       implementation: 'Static',
       fields: [
@@ -81,7 +80,6 @@ describe('CoreDB', () => {
 
     it('should handle all supported field types', async () => {
       const allTypesDef: TableDefinition = {
-        id: 2,
         name: 'all_types',
         implementation: 'Static',
         fields: [
@@ -101,7 +99,6 @@ describe('CoreDB', () => {
 
     it('should throw error for unsupported field type', async () => {
       const invalidTableDef: TableDefinition = {
-        id: 3,
         name: 'invalid',
         implementation: 'Static',
         fields: [
@@ -115,7 +112,6 @@ describe('CoreDB', () => {
 
   describe('CRUD Operations', () => {
     const userTableDef: TableDefinition = {
-      id: 1,
       name: 'users',
       implementation: 'Static',
       fields: [
@@ -186,7 +182,6 @@ describe('CoreDB', () => {
 
   describe('Query Builder', () => {
     const userTableDef: TableDefinition = {
-      id: 1,
       name: 'users',
       implementation: 'Static',
       fields: [
@@ -204,7 +199,8 @@ describe('CoreDB', () => {
     });
 
     it('should query with simple where clause', async () => {
-      const result = await db.query('users', {
+      const result = await db.query({
+        table: ['users'],
         query: {
           left: 'age',
           leftType: 'Field',
@@ -219,7 +215,8 @@ describe('CoreDB', () => {
     });
 
     it('should query with OR condition', async () => {
-      const result = await db.query('users', {
+      const result = await db.query({
+        table: ['users'],
         query: {
           Or: [
             {
@@ -246,7 +243,8 @@ describe('CoreDB', () => {
     });
 
     it('should query with AND condition', async () => {
-      const result = await db.query('users', {
+      const result = await db.query({
+        table: ['users'],
         query: {
           And: [
             {
@@ -272,7 +270,8 @@ describe('CoreDB', () => {
     });
 
     it('should sort results', async () => {
-      const result = await db.query('users', {
+      const result = await db.query({
+        table: ['users'],
         sort: [{ fieldId: 'age', direction: 'desc' }]
       });
 
@@ -283,7 +282,8 @@ describe('CoreDB', () => {
     });
 
     it('should handle pagination', async () => {
-      const result = await db.query('users', {
+      const result = await db.query({
+        table: ['users'],
         sort: [{ fieldId: 'age', direction: 'asc' }],
         limit: 2,
         page: 1
@@ -297,7 +297,6 @@ describe('CoreDB', () => {
 
   describe('Transactions', () => {
     const userTableDef: TableDefinition = {
-      id: 1,
       name: 'users',
       implementation: 'Static',
       fields: [
@@ -307,7 +306,6 @@ describe('CoreDB', () => {
     };
 
     const profileTableDef: TableDefinition = {
-      id: 2,
       name: 'profiles',
       implementation: 'Static',
       fields: [
@@ -338,7 +336,7 @@ describe('CoreDB', () => {
         await tx.commit();
 
         // Verify data was saved
-        const result = await db.query('users', {});
+        const result = await db.query({ table: ['users'] });
         expect(result).toHaveLength(1);
       } catch (error) {
         await tx.rollback();
@@ -366,7 +364,7 @@ describe('CoreDB', () => {
       }
 
       // Verify no data was saved
-      const result = await db.query('users', {});
+      const result = await db.query({ table: ['users'] });
       expect(result).toHaveLength(0);
     });
   });
@@ -374,7 +372,6 @@ describe('CoreDB', () => {
   describe('Error Handling', () => {
     it('should handle missing required fields', async () => {
       const tableDef: TableDefinition = {
-        id: 1,
         name: 'users',
         implementation: 'Static',
         fields: [
@@ -389,7 +386,6 @@ describe('CoreDB', () => {
 
     it('should handle invalid field values', async () => {
       const tableDef: TableDefinition = {
-        id: 1,
         name: 'users',
         implementation: 'Static',
         fields: [
@@ -403,12 +399,11 @@ describe('CoreDB', () => {
     });
 
     it('should handle non-existent tables', async () => {
-      await expect(db.query('non_existent_table', {})).rejects.toThrow();
+      await expect(db.query({ table: ['non_existent_table'] })).rejects.toThrow();
     });
 
     it('should handle non-existent fields in queries', async () => {
       const tableDef: TableDefinition = {
-        id: 1,
         name: 'users',
         implementation: 'Static',
         fields: [
@@ -418,7 +413,8 @@ describe('CoreDB', () => {
 
       await db.schemaCreateOrUpdate(tableDef);
 
-      await expect(db.query('users', {
+      await expect(db.query({
+        table: ['users'],
         query: {
           left: 'non_existent_field',
           leftType: 'Field',
