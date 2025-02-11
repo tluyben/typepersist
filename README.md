@@ -68,6 +68,21 @@ const results = await db.query({
     rightType: "Value",
   },
 });
+
+// Define schema with compound indexes
+await db.schemaCreateOrUpdate({
+  name: "products",
+  implementation: "Static",
+  fields: [
+    { name: "name", type: "Text" },
+    { name: "category", type: "Text" },
+    { name: "sku", type: "Text" },
+  ],
+  compoundIndexes: [
+    { fields: ["name", "category"], type: "Default" },
+    { fields: ["category", "sku"], type: "Unique" }
+  ]
+});
 ```
 
 ### 2. Using DB (Fluent Wrapper API) 🎯
@@ -93,6 +108,23 @@ await db.createTable(
     .field("age")
     .type("Integer")
     .done()
+);
+
+// Create table with compound indexes
+await db.createTable(
+  db
+    .schema("products")
+    .field("name")
+    .type("Text")
+    .done()
+    .field("category")
+    .type("Text")
+    .done()
+    .field("sku")
+    .type("Text")
+    .done()
+    .compoundDefaultKey(["name", "category"]) // Create a default compound index
+    .compoundUniqueKey(["category", "sku"]) // Create a unique compound index
 );
 
 // Insert data
