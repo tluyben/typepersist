@@ -1,0 +1,54 @@
+{
+  "Product": [
+    {
+      "name": "Laptop Pro X",
+      "sku": "LPX-001",
+      "price": 1299.99,
+      "description": "High-performance laptop with 16GB RAM",
+      "inStock": true,
+      "category": "Electronics"
+    },
+    {
+      "name": "Wireless Mouse",
+      "sku": "WM-002",
+      "price": 29.99,
+      "description": "Ergonomic wireless mouse",
+      "inStock": true,
+      "category": "Electronics"
+    }
+  ],
+  "Order": [
+    {
+      "orderNumber": "ORD-2023-001",
+      "orderDate": "2023-11-01T10:30:00Z",
+      "status": "Delivered",
+      "totalAmount": 1329.98
+    },
+    {
+      "orderNumber": "ORD-2023-002",
+      "orderDate": "2023-11-02T15:45:00Z",
+      "status": "Processing",
+      "totalAmount": 29.99
+    }
+  ],
+  "OrderItem": [
+    {
+      "order": 1,
+      "product": 1,
+      "quantity": 1,
+      "unitPrice": 1299.99
+    },
+    {
+      "order": 1,
+      "product": 2,
+      "quantity": 1,
+      "unitPrice": 29.99
+    },
+    {
+      "order": 2,
+      "product": 2,
+      "quantity": 1,
+      "unitPrice": 29.99
+    }
+  ]
+}

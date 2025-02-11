@@ -102,16 +102,61 @@ export class CoreDB {
   private knexInstance: Knex;
   private currentDB?: string;
 
+  private detectDatabaseType(connectionString: string): { client: string; config: any } {
+    // SQLite: filename or :memory:
+    if (connectionString === ':memory:' || connectionString.endsWith('.sqlite') || connectionString.endsWith('.db')) {
+      return {
+        client: 'sqlite3',
+        config: {
+          connection: {
+            filename: connectionString
+          },
+          useNullAsDefault: true,
+          pool: {
+            afterCreate: (conn: any, cb: Function) => {
+              // Enable foreign key support for SQLite
+              conn.run('PRAGMA foreign_keys = ON', cb);
+            }
+          }
+        }
+      };
+    }
+
+    // PostgreSQL: postgres://user:pass@host:port/dbname
+    if (connectionString.startsWith('postgres://') || connectionString.startsWith('postgresql://')) {
+      return {
+        client: 'pg',
+        config: {
+          connection: connectionString
+        }
+      };
+    }
+
+    // MySQL: mysql://user:pass@host:port/dbname
+    if (connectionString.startsWith('mysql://')) {
+      return {
+        client: 'mysql',
+        config: {
+          connection: connectionString
+        }
+      };
+    }
+
+    throw new Error('Invalid connection string. Supported formats:\n' +
+      '- SQLite: filename.sqlite, filename.db, or :memory:\n' +
+      '- PostgreSQL: postgres://user:pass@host:port/dbname\n' +
+      '- MySQL: mysql://user:pass@host:port/dbname');
+  }
+
   constructor(connectionString: string) {
     if (!connectionString) {
       throw new Error("Connection string cannot be empty");
     }
+
+    const { client, config } = this.detectDatabaseType(connectionString);
     this.knexInstance = knex({
-      client: "sqlite3",
-      connection: {
-        filename: connectionString,
-      },
-      useNullAsDefault: true,
+      client,
+      ...config
     });
   }
 
@@ -180,78 +225,14 @@ export class CoreDB {
             let column;
             if (knexType === "") continue; // Skip ReferenceOneToMany and ReferenceManyToMany as they're handled separately
 
-            switch (knexType) {
-              case "text":
-                column = table.text(field.name);
-                break;
-              case "uuid":
-                column = table.uuid(field.name);
-                break;
-              case "integer":
-                column = table.integer(field.name);
-                break;
-              case "decimal":
-                column = table.decimal(field.name, field.precision || 10, 2);
-                break;
-              case "float":
-                column = table.float(field.name, field.precision || 8);
-                break;
-              case "double":
-                column = table.double(field.name, field.precision || 15);
-                break;
-              case "boolean":
-                column = table.boolean(field.name);
-                break;
-              case "binary":
-                column = table.binary(field.name);
-                break;
-              case "date":
-                column = table.date(field.name);
-                break;
-              case "datetime":
-                column = table.datetime(field.name);
-                break;
-              case "time":
-                column = table.time(field.name);
-                break;
-              default:
-                throw new Error(`Invalid column type: ${knexType}`);
-            }
-
-            if (field.required) {
-              column.notNullable();
+            if (field.type === "ReferenceManyToOne" && field.foreignTable) {
+              // Handle foreign key reference directly during table creation
+              column = table.integer(field.name)
+                .unsigned()
+                .references('id')
+                .inTable(field.foreignTable)
+                .onDelete('CASCADE');
             } else {
-              column.nullable();
-            }
-
-            if (field.defaultValue !== undefined) {
-              column.defaultTo(field.defaultValue);
-            }
-
-            if (field.indexed) {
-              column.index(
-                field.indexName || `idx_${tableDefinition.name}_${field.name}`
-              );
-            }
-          }
-        }
-      );
-    } else {
-      // Get existing columns
-      const existingColumns = await this.knexInstance(
-        tableDefinition.name
-      ).columnInfo();
-
-      // Add new columns
-      await this.knexInstance.schema.alterTable(
-        tableDefinition.name,
-        (table) => {
-          for (const field of tableDefinition.fields) {
-            if (!existingColumns[field.name]) {
-              const knexType = this.getKnexFieldType(field);
-              let column;
-              if (knexType === "") continue; // Skip ReferenceOneToMany and ReferenceManyToMany as they're handled separately
-
               switch (knexType) {
                 case "text":
                   column = table.text(field.name);
@@ -288,6 +269,88 @@ export class CoreDB {
                   break;
                 default:
                   throw new Error(`Invalid column type: ${knexType}`);
+              }
+            }
+
+            if (field.required) {
+              column.notNullable();
+            } else {
+              column.nullable();
+            }
+
+            if (field.defaultValue !== undefined) {
+              column.defaultTo(field.defaultValue);
+            }
+
+            if (field.indexed) {
+              column.index(
+                field.indexName || `idx_${tableDefinition.name}_${field.name}`
+              );
+            }
+          }
+        }
+      );
+    } else {
+      // Get existing columns
+      const existingColumns = await this.knexInstance(
+        tableDefinition.name
+      ).columnInfo();
+
+      // Add new columns
+      await this.knexInstance.schema.alterTable(
+        tableDefinition.name,
+        (table) => {
+          for (const field of tableDefinition.fields) {
+            if (!existingColumns[field.name]) {
+              const knexType = this.getKnexFieldType(field);
+              let column;
+              if (knexType === "") continue; // Skip ReferenceOneToMany and ReferenceManyToMany as they're handled separately
+
+              if (field.type === "ReferenceManyToOne" && field.foreignTable) {
+                // Handle foreign key reference directly during column addition
+                column = table.integer(field.name)
+                  .unsigned()
+                  .references('id')
+                  .inTable(field.foreignTable)
+                  .onDelete('CASCADE');
+              } else {
+                switch (knexType) {
+                  case "text":
+                    column = table.text(field.name);
+                    break;
+                  case "uuid":
+                    column = table.uuid(field.name);
+                    break;
+                  case "integer":
+                    column = table.integer(field.name);
+                    break;
+                  case "decimal":
+                    column = table.decimal(field.name, field.precision || 10, 2);
+                    break;
+                  case "float":
+                    column = table.float(field.name, field.precision || 8);
+                    break;
+                  case "double":
+                    column = table.double(field.name, field.precision || 15);
+                    break;
+                  case "boolean":
+                    column = table.boolean(field.name);
+                    break;
+                  case "binary":
+                    column = table.binary(field.name);
+                    break;
+                  case "date":
+                    column = table.date(field.name);
+                    break;
+                  case "datetime":
+                    column = table.datetime(field.name);
+                    break;
+                  case "time":
+                    column = table.time(field.name);
+                    break;
+                  default:
+                    throw new Error(`Invalid column type: ${knexType}`);
+                }
               }
 
               if (field.required) {
@@ -350,21 +413,45 @@ export class CoreDB {
       throw new Error(`Child table '${childName}' does not exist`);
     }
 
-    // Check if foreign key column already exists
+    // Check if foreign key column exists
     const childColumns = await this.knexInstance(childName).columnInfo();
+    
+    // Get existing foreign keys
+    const foreignKeys = await this.getForeignKeys(childName);
+    const hasForeignKey = foreignKeys.some((fk: any) => 
+      fk.from === foreignKeyField && 
+      fk.table === parentName && 
+      fk.to === 'id'
+    );
 
-    // Add foreign key column and constraint if it doesn't exist
-    if (!childColumns[foreignKeyField]) {
+    // If either the column doesn't exist or it exists but without proper foreign key
+    if (!childColumns[foreignKeyField] || !hasForeignKey) {
+      // Drop existing column if it exists without proper foreign key
+      if (childColumns[foreignKeyField]) {
+        await this.knexInstance.schema.alterTable(childName, (table) => {
+          table.dropColumn(foreignKeyField);
+        });
+      }
+
+      // Add column with foreign key constraint
       await this.knexInstance.schema.alterTable(childName, (table) => {
-        table
-          .integer(foreignKeyField)
+        table.integer(foreignKeyField)
           .unsigned()
-          .references("id")
+          .references('id')
           .inTable(parentName)
-          .onDelete("CASCADE")
-          .index(`idx_${childName}_${foreignKeyField}`);
+          .onDelete('CASCADE');
       });
     }
+  }
+
+  async getForeignKeys(tableName: string): Promise<any[]> {
+    // Check if we're using SQLite
+    if (this.knexInstance.client.config.client !== 'sqlite3') {
+      throw new Error('getForeignKeys is only implemented for SQLite databases');
+    }
+    
+    const result = await this.knexInstance.raw(`PRAGMA foreign_key_list(${tableName})`);
+    return Array.isArray(result) ? result : [];
   }
 
   async startTransaction(): Promise<Knex.Transaction> {
@@ -422,37 +509,61 @@ export class CoreDB {
             break;
           case "time":
             // Time format validation (HH:mm:ss or HH:mm)
-            if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(value)) {
-              throw new Error(`Field '${field}' must be a valid time in format HH:mm:ss or HH:mm`);
+            if (
+              !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(value)
+            ) {
+              throw new Error(
+                `Field '${field}' must be a valid time in format HH:mm:ss or HH:mm`
+              );
             }
             break;
           case "uuid":
             // UUID format validation
-            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+            if (
+              !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                value
+              )
+            ) {
               throw new Error(`Field '${field}' must be a valid UUID`);
             }
             break;
           case "binary":
             if (!(value instanceof Buffer) && !(value instanceof Uint8Array)) {
-              throw new Error(`Field '${field}' must be a Buffer or Uint8Array`);
+              throw new Error(
+                `Field '${field}' must be a Buffer or Uint8Array`
+              );
             }
             break;
           case "enum":
             // For enum validation, we need to get the field definition from the column info
             const columnInfo = columns[field];
-            if (columnInfo && typeof value === 'string') {
+            if (columnInfo && typeof value === "string") {
               // In SQLite/Knex, enum constraints are not enforced at DB level
               // The enum values would need to be stored in application logic or metadata
               // For now, we just ensure it's a string value
               break;
             }
-            throw new Error(`Field '${field}' must be a string value for enum type`);
+            throw new Error(
+              `Field '${field}' must be a string value for enum type`
+            );
         }
       }
     }
 
-    const [id] = await queryBuilder(tableName).insert(data);
-    return id;
+    try {
+      const [id] = await queryBuilder(tableName).insert(data);
+      return id;
+    } catch (error: any) {
+      // Check if it's a foreign key constraint error
+      // Handle both Knex error format and raw SQLite error format
+      if (
+        (error.message && error.message.includes('FOREIGN KEY constraint failed')) ||
+        (error.errno === 19 && error.code === 'SQLITE_CONSTRAINT')
+      ) {
+        throw new Error('Foreign key constraint failed');
+      }
+      throw error;
+    }
   }
 
   async update(

@@ -11,7 +11,7 @@ import {
   generateSQL,
   listTables,
   getTableDefinition,
-} from "./core-db-cli-utils";
+} from "./core-db-utils";
 
 // Command line argument parsing
 const args = process.argv.slice(2);

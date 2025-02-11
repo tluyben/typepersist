@@ -1,0 +1,98 @@
+[
+  {
+    "name": "Product",
+    "implementation": "Static",
+    "fields": [
+      {
+        "name": "name",
+        "type": "Text",
+        "required": true
+      },
+      {
+        "name": "sku",
+        "type": "Text",
+        "indexed": "Unique"
+      },
+      {
+        "name": "price",
+        "type": "Currency",
+        "required": true
+      },
+      {
+        "name": "description",
+        "type": "Text"
+      },
+      {
+        "name": "inStock",
+        "type": "Boolean",
+        "required": true,
+        "defaultValue": "true"
+      },
+      {
+        "name": "category",
+        "type": "Enum",
+        "options": ["Electronics", "Clothing", "Books", "Home", "Other"]
+      }
+    ]
+  },
+  {
+    "name": "Order",
+    "implementation": "Static",
+    "fields": [
+      {
+        "name": "orderNumber",
+        "type": "Text",
+        "required": true,
+        "indexed": "Unique"
+      },
+      {
+        "name": "orderDate",
+        "type": "Datetime",
+        "required": true
+      },
+      {
+        "name": "status",
+        "type": "Enum",
+        "required": true,
+        "options": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"]
+      },
+      {
+        "name": "totalAmount",
+        "type": "Currency",
+        "required": true
+      }
+    ]
+  },
+  {
+    "name": "OrderItem",
+    "implementation": "Static",
+    "fields": [
+      {
+        "name": "order",
+        "type": "ReferenceManyToOne",
+        "required": true,
+        "foreignTable": "Order",
+        "indexed": "Foreign",
+        "indexedFields": ["order"]
+      },
+      {
+        "name": "product",
+        "type": "ReferenceManyToOne",
+        "required": true,
+        "foreignTable": "Product",
+        "indexed": "Foreign",
+        "indexedFields": ["product"]
+      },
+      {
+        "name": "quantity",
+        "type": "Integer",
+        "required": true
+      },
+      {
+        "name": "unitPrice",
+        "type": "Currency",
+        "required": true
+      }
+    ]
+  }
+]

@@ -1,27 +1,150 @@
 import { CoreDB, TableDefinition, FieldDef } from "./core-db";
 
-interface TableData extends TableDefinition {
+export interface TableData extends TableDefinition {
   data?: Record<string, any>[];
 }
 
-interface ImportExportData {
+export interface ImportExportData {
   tables: TableData[];
 }
 
-export async function importFromJSON(db: CoreDB, data: ImportExportData): Promise<void> {
-  if (!Array.isArray(data.tables)) {
-    throw new Error("Invalid JSON format: expected 'tables' array");
-  }
+// New types for the different import formats
+export type SchemaOnlyImport = TableDefinition[];
 
-  for (const table of data.tables) {
-    const { data: tableData, ...tableDefinition } = table;
-    await db.schemaCreateOrUpdate(tableDefinition);
+export interface DataOnlyImport {
+  [tableName: string]: Record<string, any>[];
+}
 
-    if (tableData && Array.isArray(tableData)) {
-      for (const row of tableData) {
-        await db.insert(table.name, row);
+export interface SchemaAndDataImport {
+  schema: TableDefinition[];
+  data: {
+    [tableName: string]: Record<string, any>[];
+  };
+}
+
+export type ImportFormat = ImportExportData | SchemaOnlyImport | DataOnlyImport | SchemaAndDataImport;
+
+function isSchemaOnlyImport(data: any): data is SchemaOnlyImport {
+  return Array.isArray(data) && data.every(table => 
+    typeof table === 'object' && 
+    'name' in table && 
+    'fields' in table &&
+    Array.isArray(table.fields)
+  );
+}
+
+function isDataOnlyImport(data: any): data is DataOnlyImport {
+  return typeof data === 'object' && 
+    !Array.isArray(data) && 
+    !('schema' in data) && 
+    !('tables' in data) &&
+    Object.values(data).every(value => Array.isArray(value));
+}
+
+function isSchemaAndDataImport(data: any): data is SchemaAndDataImport {
+  return typeof data === 'object' && 
+    'schema' in data && 
+    'data' in data &&
+    Array.isArray(data.schema) &&
+    typeof data.data === 'object';
+}
+
+function isLegacyImport(data: any): data is ImportExportData {
+  return typeof data === 'object' && 
+    'tables' in data && 
+    Array.isArray(data.tables);
+}
+
+async function connectRelatedTables(db: CoreDB, schema: TableDefinition[]): Promise<void> {
+  for (const table of schema) {
+    for (const field of table.fields) {
+      if (field.type === "ReferenceManyToOne" && field.foreignTable) {
+        await db.schemaConnect(field.foreignTable, table.name);
       }
     }
+  }
+}
+
+export async function importFromJSON(db: CoreDB, data: ImportFormat): Promise<void> {
+  try {
+    // Handle schema-only import (array of table definitions)
+    if (isSchemaOnlyImport(data)) {
+      for (const tableDefinition of data) {
+        await db.schemaCreateOrUpdate(tableDefinition);
+      }
+      await connectRelatedTables(db, data);
+      return;
+    }
+
+    // Handle data-only import (object with table names as keys)
+    if (isDataOnlyImport(data)) {
+      for (const [tableName, records] of Object.entries(data)) {
+        for (const record of records) {
+          try {
+            await db.insert(tableName, record);
+          } catch (error) {
+            if (error instanceof Error) {
+              throw new Error(`Failed to insert data into ${tableName}: ${error.message}`);
+            }
+            throw error;
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle combined schema and data import
+    if (isSchemaAndDataImport(data)) {
+      // First create all tables
+      for (const tableDefinition of data.schema) {
+        await db.schemaCreateOrUpdate(tableDefinition);
+      }
+      await connectRelatedTables(db, data.schema);
+
+      // Then import all data
+      for (const [tableName, records] of Object.entries(data.data)) {
+        for (const record of records) {
+          try {
+            await db.insert(tableName, record);
+          } catch (error) {
+            if (error instanceof Error) {
+              throw new Error(`Failed to insert data into ${tableName}: ${error.message}`);
+            }
+            throw error;
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle legacy format
+    if (isLegacyImport(data)) {
+      for (const table of data.tables) {
+        const { data: tableData, ...tableDefinition } = table;
+        await db.schemaCreateOrUpdate(tableDefinition);
+
+        if (tableData && Array.isArray(tableData)) {
+          for (const row of tableData) {
+            try {
+              await db.insert(table.name, row);
+            } catch (error) {
+              if (error instanceof Error) {
+                throw new Error(`Failed to insert data into ${table.name}: ${error.message}`);
+              }
+              throw error;
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    throw new Error("Invalid import format");
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Import failed with unknown error");
   }
 }
 

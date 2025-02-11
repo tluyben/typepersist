@@ -1,0 +1,119 @@
+{
+  "schema": [
+    {
+      "name": "User",
+      "implementation": "Static",
+      "fields": [
+        {
+          "name": "email",
+          "type": "Text",
+          "required": true,
+          "indexed": "Unique"
+        },
+        {
+          "name": "password",
+          "type": "Password",
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "Text",
+          "required": true
+        },
+        {
+          "name": "role",
+          "type": "Enum",
+          "required": true,
+          "options": ["Admin", "User", "Guest"]
+        },
+        {
+          "name": "lastLogin",
+          "type": "Datetime"
+        },
+        {
+          "name": "active",
+          "type": "Boolean",
+          "required": true,
+          "defaultValue": "true"
+        }
+      ]
+    },
+    {
+      "name": "Post",
+      "implementation": "Static",
+      "fields": [
+        {
+          "name": "title",
+          "type": "Text",
+          "required": true
+        },
+        {
+          "name": "content",
+          "type": "Text",
+          "required": true
+        },
+        {
+          "name": "author",
+          "type": "ReferenceManyToOne",
+          "required": true,
+          "foreignTable": "User",
+          "indexed": "Foreign",
+          "indexedFields": ["author"]
+        },
+        {
+          "name": "publishedAt",
+          "type": "Datetime"
+        },
+        {
+          "name": "status",
+          "type": "Enum",
+          "required": true,
+          "options": ["Draft", "Published", "Archived"]
+        }
+      ]
+    }
+  ],
+  "data": {
+    "User": [
+      {
+        "email": "admin@example.com",
+        "password": "hashed_password_1",
+        "name": "Admin User",
+        "role": "Admin",
+        "lastLogin": "2023-11-01T08:00:00Z",
+        "active": true
+      },
+      {
+        "email": "user@example.com",
+        "password": "hashed_password_2",
+        "name": "Regular User",
+        "role": "User",
+        "lastLogin": "2023-11-02T10:15:00Z",
+        "active": true
+      }
+    ],
+    "Post": [
+      {
+        "title": "Welcome to Our Platform",
+        "content": "This is the first post on our platform.",
+        "author": 1,
+        "publishedAt": "2023-11-01T09:00:00Z",
+        "status": "Published"
+      },
+      {
+        "title": "Getting Started Guide",
+        "content": "Here's how to get started with our platform...",
+        "author": 1,
+        "publishedAt": null,
+        "status": "Draft"
+      },
+      {
+        "title": "My First Post",
+        "content": "Hello everyone, this is my first post!",
+        "author": 2,
+        "publishedAt": "2023-11-02T11:00:00Z",
+        "status": "Published"
+      }
+    ]
+  }
+}
