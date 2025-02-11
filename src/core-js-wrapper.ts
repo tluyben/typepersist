@@ -61,21 +61,21 @@ export class SchemaWrapper {
     return this;
   }
   primaryKey(fields: string[]) {
-    this.compoundPrimaryKey(fields);
+    return this.compoundPrimaryKey(fields);
   }
   compoundUniqueKey(fields: string[]) {
     this.indexes.push({ fields, type: "Unique" });
     return this;
   }
   uniqueKey(fields: string[]) {
-    this.compoundUniqueKey(fields);
+    return this.compoundUniqueKey(fields);
   }
   compoundDefaultKey(fields: string[]) {
     this.indexes.push({ fields, type: "Default" });
     return this;
   }
   defaultKey(fields: string[]) {
-    this.compoundDefaultKey(fields);
+    return this.compoundDefaultKey(fields);
   }
 }
 
