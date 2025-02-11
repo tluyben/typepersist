@@ -1,6 +1,6 @@
 {
   "name": "typepersist",
-  "version": "1.0.0",
+  "version": "0.5.1",
   "description": "Persist / query data in databases as easily as accessing Typescript arrays the way you normally do",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
