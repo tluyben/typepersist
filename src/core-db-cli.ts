@@ -3,7 +3,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
-import { CoreDB } from "./core-db";
+import { CoreDB, FieldType } from "./core-db";
 import {
   importFromJSON,
   importFromSQL,
@@ -154,7 +154,7 @@ const handleInput = async (input: string, db: CoreDB) => {
     case "/create-field":
       if (args.length < 3) {
         console.log(
-          "Usage: /create-field <table> <field> <type> [index: default|unique]"
+          "Usage: /create-field <table> <field> <type> [index: Default|Unique|Foreign]"
         );
         break;
       }
@@ -171,13 +171,10 @@ const handleInput = async (input: string, db: CoreDB) => {
 
         const newField = {
           name: fieldName,
-          type: fieldType,
-          indexed:
-            indexType === "unique"
-              ? "unique"
-              : indexType === "default"
-              ? "default"
-              : undefined,
+          type: fieldType as FieldType,
+          indexed: (indexType === "Unique" || indexType === "Default" || indexType === "Foreign" 
+            ? indexType as "Unique" | "Default" | "Foreign" 
+            : undefined),
         };
 
         const updatedFields = [...existingTable.fields, newField];
@@ -302,7 +299,7 @@ Available commands:
 /tables [format]                    List all tables (format: json, sql, default)
 /describe <table> [format]         Show table definition (format: json, sql, default)
 /create-table <name>               Create a new table
-/create-field <table> <field> <type> [index]  Add field to table (index: default, unique)
+/create-field <table> <field> <type> [index]  Add field to table (index: Default|Unique|Foreign)
 /join-table <parent> <child>       Create foreign key relationship between tables
 /drop-table <table>                Drop a table
 /drop-field <table> <field>        Drop a field from a table
@@ -310,19 +307,33 @@ Available commands:
 /rename-field <table> <old> <new>  Rename a field in a table
 
 Field types:
-- Text
-- Integer
-- Float
-- Boolean
-- Date
-- DateTime
-- Time
-- Choice
+- Text (standard text)
+- Password (secure text)
+- UUID (unique identifier)
+- Integer (whole numbers)
+- Currency (monetary values)
+- Float (decimal numbers)
+- Double (high-precision decimals)
+- Decimal (exact decimals)
+- Datetime (date and time)
+- Time (time only)
+- Date (date only)
+- CreatedAt (automatic timestamp)
+- UpdatedAt (automatic timestamp)
+- Boolean (true/false)
+- Binary (binary data)
+- ID (primary key type)
+- Enum (predefined options)
+- ReferenceOneToOne (1:1 relation)
+- ReferenceManyToOne (n:1 relation)
+- ReferenceOneToMany (1:n relation)
+- ReferenceManyToMany (n:n relation)
 
 Examples:
 /create-table users
 /create-field users name Text
-/create-field users age Integer
+/create-field users age Integer Default
+/create-field users email Text Unique
 /join-table users posts
 `);
       break;

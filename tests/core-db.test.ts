@@ -1,4 +1,4 @@
-import { CoreDB, TableDefinition } from "../src/core-db";
+import { CoreDB, TableDefinition, FieldType } from "../src/core-db";
 import fs from "fs";
 import path from "path";
 
@@ -34,9 +34,9 @@ describe("CoreDB", () => {
       name: "users",
       implementation: "Static",
       fields: [
-        { name: "name", type: "Text", required: true },
-        { name: "email", type: "Text", indexed: "true" },
-        { name: "age", type: "Integer" },
+        { name: "name", type: "Text" as FieldType, required: true },
+        { name: "email", type: "Text" as FieldType, indexed: "Unique" },
+        { name: "age", type: "Integer" as FieldType },
       ],
     };
 
@@ -51,7 +51,7 @@ describe("CoreDB", () => {
 
       const updatedTableDef = {
         ...userTableDef,
-        fields: [...userTableDef.fields, { name: "address", type: "Text" }],
+        fields: [...userTableDef.fields, { name: "address", type: "Text" as FieldType }],
       };
 
       await expect(
@@ -86,14 +86,14 @@ describe("CoreDB", () => {
         name: "all_types",
         implementation: "Static",
         fields: [
-          { name: "textField", type: "Text" },
-          { name: "integerField", type: "Integer" },
-          { name: "floatField", type: "Float" },
-          { name: "booleanField", type: "Boolean" },
-          { name: "dateField", type: "Date" },
-          { name: "dateTimeField", type: "DateTime" },
-          { name: "timeField", type: "Time" },
-          { name: "choiceField", type: "Choice", options: ["A", "B", "C"] },
+          { name: "textField", type: "Text" as FieldType },
+          { name: "integerField", type: "Integer" as FieldType },
+          { name: "floatField", type: "Float" as FieldType },
+          { name: "booleanField", type: "Boolean" as FieldType },
+          { name: "dateField", type: "Date" as FieldType },
+          { name: "dateTimeField", type: "Datetime" as FieldType },
+          { name: "timeField", type: "Time" as FieldType },
+          { name: "enumField", type: "Enum" as FieldType, options: ["A", "B", "C"] },
         ],
       };
 
@@ -114,13 +114,13 @@ describe("CoreDB", () => {
       const authorTableDef: TableDefinition = {
         name: "authors",
         implementation: "Static",
-        fields: [{ name: "name", type: "Text", required: true }],
+        fields: [{ name: "name", type: "Text" as FieldType, required: true }],
       };
 
       const bookTableDef: TableDefinition = {
         name: "books",
         implementation: "Static",
-        fields: [{ name: "title", type: "Text", required: true }],
+        fields: [{ name: "title", type: "Text" as FieldType, required: true }],
       };
 
       it("should create a foreign key relationship between tables", async () => {
@@ -167,9 +167,9 @@ describe("CoreDB", () => {
       name: "users",
       implementation: "Static",
       fields: [
-        { name: "name", type: "Text", required: true },
-        { name: "email", type: "Text", indexed: "true" },
-        { name: "age", type: "Integer" },
+        { name: "name", type: "Text" as FieldType, required: true },
+        { name: "email", type: "Text" as FieldType, indexed: "Unique" },
+        { name: "age", type: "Integer" as FieldType },
       ],
     };
 
@@ -237,9 +237,9 @@ describe("CoreDB", () => {
       name: "users",
       implementation: "Static",
       fields: [
-        { name: "name", type: "Text", required: true },
-        { name: "email", type: "Text", indexed: "true" },
-        { name: "age", type: "Integer" },
+        { name: "name", type: "Text" as FieldType, required: true },
+        { name: "email", type: "Text" as FieldType, indexed: "Unique" },
+        { name: "age", type: "Integer" as FieldType },
       ],
     };
 
@@ -364,8 +364,8 @@ describe("CoreDB", () => {
       name: "users",
       implementation: "Static",
       fields: [
-        { name: "name", type: "Text", required: true },
-        { name: "email", type: "Text", indexed: "true" },
+        { name: "name", type: "Text" as FieldType, required: true },
+        { name: "email", type: "Text" as FieldType, indexed: "Unique" },
       ],
     };
 
@@ -373,8 +373,8 @@ describe("CoreDB", () => {
       name: "profiles",
       implementation: "Static",
       fields: [
-        { name: "userId", type: "Integer", required: true },
-        { name: "bio", type: "Text" },
+        { name: "userId", type: "Integer" as FieldType, required: true },
+        { name: "bio", type: "Text" as FieldType },
       ],
     };
 
@@ -454,7 +454,7 @@ describe("CoreDB", () => {
       const tableDef: TableDefinition = {
         name: "users",
         implementation: "Static",
-        fields: [{ name: "name", type: "Text", required: true }],
+        fields: [{ name: "name", type: "Text" as FieldType, required: true }],
       };
 
       await db.schemaCreateOrUpdate(tableDef);
@@ -466,7 +466,7 @@ describe("CoreDB", () => {
       const tableDef: TableDefinition = {
         name: "users",
         implementation: "Static",
-        fields: [{ name: "age", type: "Integer" }],
+        fields: [{ name: "age", type: "Integer" as FieldType }],
       };
 
       await db.schemaCreateOrUpdate(tableDef);
@@ -486,7 +486,7 @@ describe("CoreDB", () => {
       const tableDef: TableDefinition = {
         name: "users",
         implementation: "Static",
-        fields: [{ name: "name", type: "Text" }],
+        fields: [{ name: "name", type: "Text" as FieldType }],
       };
 
       await db.schemaCreateOrUpdate(tableDef);

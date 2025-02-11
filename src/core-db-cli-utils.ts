@@ -94,7 +94,7 @@ export function generateSQL(db: CoreDB, data: ImportExportData): string {
         let def = `  ${field.name} ${field.type}`;
         if (field.required) def += " NOT NULL";
         if (field.defaultValue !== undefined) def += ` DEFAULT ${field.defaultValue}`;
-        if (field.indexed === "unique") def += " UNIQUE";
+        if (field.indexed === "Unique") def += " UNIQUE";
         return def;
       });
       
@@ -103,7 +103,7 @@ export function generateSQL(db: CoreDB, data: ImportExportData): string {
 
       // Create indexes
       table.fields.forEach((field: FieldDef) => {
-        if (field.indexed === "default") {
+        if (field.indexed === "Default" || field.indexed === "Foreign") {
           sql += `CREATE INDEX IF NOT EXISTS idx_${table.name}_${field.name} ON ${table.name}(${field.name});\n`;
         }
       });

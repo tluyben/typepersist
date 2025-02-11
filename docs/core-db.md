@@ -144,6 +144,7 @@ await db.schemaConnect(parentName: string, childName: string): Promise<void>
 ```
 
 Creates a foreign key relationship between two tables. This method:
+
 - Creates a foreign key column named `{parentName}Id` in the child table
 - Makes it reference the `id` field of the parent table
 - Adds ON DELETE CASCADE behavior for automatic cleanup of child records
@@ -151,9 +152,10 @@ Creates a foreign key relationship between two tables. This method:
 - Is idempotent (safe to call multiple times)
 
 Example:
+
 ```typescript
 // Create a foreign key relationship between authors and books
-await db.schemaConnect('authors', 'books'); // Creates authorsId in books table
+await db.schemaConnect("authors", "books"); // Creates authorsId in books table
 ```
 
 ### Data Operations
@@ -203,13 +205,13 @@ Query structure:
 ```typescript
 type TableQuery = {
   table: string;
-  query?: Where;  // Optional query specific to this table
+  query?: Where; // Optional query specific to this table
 };
 
 type Query = {
-  table: TableQuery[];  // At least one table is required
+  table: TableQuery[]; // At least one table is required
   field?: { [table: string]: string[] };
-  query?: Where;  // Main query that applies to all tables
+  query?: Where; // Main query that applies to all tables
   sort?: Sort[];
   page?: number;
   limit?: number;
@@ -220,6 +222,7 @@ type Query = {
 When using multiple tables in a query, they must have foreign key relationships established using `schemaConnect`. Each table after the first one must have a foreign key reference to one of the previous tables in the list. The results will be returned in a nested structure where child records are included as arrays under their parent record.
 
 For example, if you have authors and books tables connected with a foreign key, the results would look like:
+
 ```typescript
 [
   {
@@ -227,10 +230,10 @@ For example, if you have authors and books tables connected with a foreign key, 
     name: "Stephen King",
     books: [
       { id: 1, title: "The Shining", genre: "horror" },
-      { id: 2, title: "IT", genre: "horror" }
-    ]
-  }
-]
+      { id: 2, title: "IT", genre: "horror" },
+    ],
+  },
+];
 ```
 
 Where conditions can be:
@@ -315,9 +318,7 @@ await db.delete("users", [userId]);
 await db.schemaCreateOrUpdate({
   name: "authors",
   implementation: "Static",
-  fields: [
-    { name: "name", type: "Text", required: true }
-  ]
+  fields: [{ name: "name", type: "Text", required: true }],
 });
 
 await db.schemaCreateOrUpdate({
@@ -325,41 +326,41 @@ await db.schemaCreateOrUpdate({
   implementation: "Static",
   fields: [
     { name: "title", type: "Text", required: true },
-    { name: "genre", type: "Text" }
-  ]
+    { name: "genre", type: "Text" },
+  ],
 });
 
 // Create foreign key relationship
-await db.schemaConnect('authors', 'books');
+await db.schemaConnect("authors", "books");
 
 // Insert data
 const authorId = await db.insert("authors", { name: "Stephen King" });
-await db.insert("books", { 
+await db.insert("books", {
   title: "The Shining",
   genre: "horror",
-  authorsId: authorId 
+  authorsId: authorId,
 });
-await db.insert("books", { 
+await db.insert("books", {
   title: "IT",
   genre: "horror",
-  authorsId: authorId 
+  authorsId: authorId,
 });
 
 // Query authors with their horror books
 const results = await db.query({
   table: [
-    { table: 'authors' },
-    { 
-      table: 'books',
+    { table: "authors" },
+    {
+      table: "books",
       query: {
-        left: 'genre',
-        leftType: 'Field',
-        cmp: 'eq',
-        right: 'horror',
-        rightType: 'Value'
-      }
-    }
-  ]
+        left: "genre",
+        leftType: "Field",
+        cmp: "eq",
+        right: "horror",
+        rightType: "Value",
+      },
+    },
+  ],
 });
 
 // Results will be nested:
@@ -379,22 +380,22 @@ const results = await db.query({
 
 ```typescript
 // First establish the relationship
-await db.schemaConnect('authors', 'books');
+await db.schemaConnect("authors", "books");
 
 // Query authors and their horror books
 const results = await db.query({
   table: [
-    { table: 'authors' },
-    { 
-      table: 'books',
+    { table: "authors" },
+    {
+      table: "books",
       query: {
-        left: 'genre',
-        leftType: 'Field',
-        cmp: 'eq',
-        right: 'horror',
-        rightType: 'Value'
-      }
-    }
+        left: "genre",
+        leftType: "Field",
+        cmp: "eq",
+        right: "horror",
+        rightType: "Value",
+      },
+    },
   ],
   query: {
     And: [

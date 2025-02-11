@@ -50,20 +50,45 @@ export type Query = {
   groupFields?: string[];
 };
 
+export type FieldType =
+  | "Text"
+  | "Password"
+  | "UUID"
+  | "Integer"
+  | "Currency"
+  | "Float"
+  | "Double"
+  | "Decimal"
+  | "Datetime"
+  | "Time"
+  | "Date"
+  | "CreatedAt"
+  | "UpdatedAt"
+  | "Boolean"
+  | "Binary"
+  | "ID"
+  | "Enum"
+  | "ReferenceOneToOne"
+  | "ReferenceManyToOne"
+  | "ReferenceOneToMany"
+  | "ReferenceManyToMany";
+
 export type FieldDef = {
   name: string;
-  type: string;
+  type: FieldType;
   minimum?: number;
   maximum?: number;
-  indexed?: string;
+  indexed?: "Default" | "Unique" | "Foreign";
   precision?: number;
   required?: boolean;
   ordering?: number;
   defaultValue?: string;
   system?: boolean;
   referenceName?: string;
-  options?: string[];
+  options?: string[]; // Required for Enum type
   indexName?: string;
+  foreignTable?: string; // Required for Reference types
+  indexedFields?: string[]; // Required for Reference types
 };
 
 export type TableDefinition = {
@@ -93,19 +118,40 @@ export class CoreDB {
   private getKnexFieldType(fieldDef: FieldDef): string {
     switch (fieldDef.type) {
       case "Text":
-      case "Choice":
+      case "Password":
         return "text";
+      case "UUID":
+        return "uuid";
       case "Integer":
+      case "ID":
         return "integer";
+      case "Currency":
+      case "Decimal":
+        return "decimal";
       case "Float":
         return "float";
+      case "Double":
+        return "double";
       case "Boolean":
         return "boolean";
+      case "Binary":
+        return "binary";
       case "Date":
-      case "DateTime":
-        return "datetime";
+        return "date";
       case "Time":
         return "time";
+      case "Datetime":
+      case "CreatedAt":
+      case "UpdatedAt":
+        return "datetime";
+      case "Enum":
+        return "text";
+      case "ReferenceOneToOne":
+      case "ReferenceManyToOne":
+        return "integer"; // Foreign key reference
+      case "ReferenceOneToMany":
+      case "ReferenceManyToMany":
+        return ""; // These are handled through separate junction tables
       default:
         throw new Error(`Unsupported field type: ${fieldDef.type}`);
     }
@@ -132,18 +178,35 @@ export class CoreDB {
           for (const field of tableDefinition.fields) {
             const knexType = this.getKnexFieldType(field);
             let column;
+            if (knexType === "") continue; // Skip ReferenceOneToMany and ReferenceManyToMany as they're handled separately
+
             switch (knexType) {
               case "text":
                 column = table.text(field.name);
                 break;
+              case "uuid":
+                column = table.uuid(field.name);
+                break;
               case "integer":
                 column = table.integer(field.name);
                 break;
+              case "decimal":
+                column = table.decimal(field.name, field.precision || 10, 2);
+                break;
               case "float":
-                column = table.float(field.name);
+                column = table.float(field.name, field.precision || 8);
+                break;
+              case "double":
+                column = table.double(field.name, field.precision || 15);
                 break;
               case "boolean":
                 column = table.boolean(field.name);
+                break;
+              case "binary":
+                column = table.binary(field.name);
+                break;
+              case "date":
+                column = table.date(field.name);
                 break;
               case "datetime":
                 column = table.datetime(field.name);
@@ -187,18 +250,35 @@ export class CoreDB {
             if (!existingColumns[field.name]) {
               const knexType = this.getKnexFieldType(field);
               let column;
+              if (knexType === "") continue; // Skip ReferenceOneToMany and ReferenceManyToMany as they're handled separately
+
               switch (knexType) {
                 case "text":
                   column = table.text(field.name);
                   break;
+                case "uuid":
+                  column = table.uuid(field.name);
+                  break;
                 case "integer":
                   column = table.integer(field.name);
                   break;
+                case "decimal":
+                  column = table.decimal(field.name, field.precision || 10, 2);
+                  break;
                 case "float":
-                  column = table.float(field.name);
+                  column = table.float(field.name, field.precision || 8);
+                  break;
+                case "double":
+                  column = table.double(field.name, field.precision || 15);
                   break;
                 case "boolean":
                   column = table.boolean(field.name);
+                  break;
+                case "binary":
+                  column = table.binary(field.name);
+                  break;
+                case "date":
+                  column = table.date(field.name);
                   break;
                 case "datetime":
                   column = table.datetime(field.name);
@@ -314,12 +394,15 @@ export class CoreDB {
 
         switch (column.type) {
           case "integer":
+          case "ID":
             if (!Number.isInteger(Number(value))) {
               throw new Error(`Field '${field}' must be an integer`);
             }
             break;
           case "float":
           case "double":
+          case "decimal":
+          case "currency":
             if (isNaN(Number(value))) {
               throw new Error(`Field '${field}' must be a number`);
             }
@@ -331,10 +414,39 @@ export class CoreDB {
             break;
           case "datetime":
           case "date":
+          case "createdAt":
+          case "updatedAt":
             if (!(value instanceof Date) && isNaN(Date.parse(value))) {
               throw new Error(`Field '${field}' must be a valid date`);
             }
             break;
+          case "time":
+            // Time format validation (HH:mm:ss or HH:mm)
+            if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(value)) {
+              throw new Error(`Field '${field}' must be a valid time in format HH:mm:ss or HH:mm`);
+            }
+            break;
+          case "uuid":
+            // UUID format validation
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+              throw new Error(`Field '${field}' must be a valid UUID`);
+            }
+            break;
+          case "binary":
+            if (!(value instanceof Buffer) && !(value instanceof Uint8Array)) {
+              throw new Error(`Field '${field}' must be a Buffer or Uint8Array`);
+            }
+            break;
+          case "enum":
+            // For enum validation, we need to get the field definition from the column info
+            const columnInfo = columns[field];
+            if (columnInfo && typeof value === 'string') {
+              // In SQLite/Knex, enum constraints are not enforced at DB level
+              // The enum values would need to be stored in application logic or metadata
+              // For now, we just ensure it's a string value
+              break;
+            }
+            throw new Error(`Field '${field}' must be a string value for enum type`);
         }
       }
     }
