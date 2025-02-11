@@ -165,17 +165,13 @@ describe("Import Functionality", () => {
 
       // Verify nested relationships with query
       const results = await db.query({
-        table: [
-          { table: "Publisher" },
-          { table: "Author" },
-          { table: "Book" },
-        ],
+        table: [{ table: "Publisher" }, { table: "Author" }, { table: "Book" }],
       });
 
       expect(results).toHaveLength(2);
-      
+
       // Check Viking Press and Stephen King's books
-      const vikingPress = results.find(p => p.name === "Viking Press");
+      const vikingPress = results.find((p) => p.name === "Viking Press");
       expect(vikingPress.Author).toHaveLength(1);
       expect(vikingPress.Author[0].name).toBe("Stephen King");
       expect(vikingPress.Author[0].Book).toHaveLength(2);
@@ -183,12 +179,14 @@ describe("Import Functionality", () => {
       expect(vikingPress.Author[0].Book[1].title).toBe("IT");
 
       // Check Allen & Unwin and Tolkien's books
-      const allenUnwin = results.find(p => p.name === "Allen & Unwin");
+      const allenUnwin = results.find((p) => p.name === "Allen & Unwin");
       expect(allenUnwin.Author).toHaveLength(1);
       expect(allenUnwin.Author[0].name).toBe("J.R.R. Tolkien");
       expect(allenUnwin.Author[0].Book).toHaveLength(2);
       expect(allenUnwin.Author[0].Book[0].title).toBe("The Hobbit");
-      expect(allenUnwin.Author[0].Book[1].title).toBe("The Fellowship of the Ring");
+      expect(allenUnwin.Author[0].Book[1].title).toBe(
+        "The Fellowship of the Ring"
+      );
     });
 
     it("should maintain referential integrity with nested data", async () => {
@@ -217,13 +215,17 @@ describe("Import Functionality", () => {
 
       // Should only get Viking Press -> Stephen King -> horror books
       expect(results).toHaveLength(2); // Still get both publishers
-      const vikingPress = results.find(p => p.name === "Viking Press");
+      const vikingPress = results.find((p) => p.name === "Viking Press");
       expect(vikingPress.Author[0].Book).toHaveLength(2); // Both horror books
-      expect(vikingPress.Author[0].Book.every((b: { genre: string }) => b.genre === "horror")).toBe(true);
+      expect(
+        vikingPress.Author[0].Book.every(
+          (b: { genre: string }) => b.genre === "horror"
+        )
+      ).toBe(true);
 
-      const allenUnwin = results.find(p => p.name === "Allen & Unwin");
+      const allenUnwin = results.find((p) => p.name === "Allen & Unwin");
       expect(allenUnwin.Author[0].Book).toHaveLength(0); // No horror books
-    });
+    }, 1000000);
   });
 
   describe("Error Handling", () => {

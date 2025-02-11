@@ -61,48 +61,38 @@
   "data": {
     "Publisher": [
       {
-        "id": 1,
         "name": "Viking Press",
         "country": "USA",
         "Author": [
           {
-            "id": 1,
             "name": "Stephen King",
-            "publisherId": 1,
             "Book": [
               {
                 "title": "The Shining",
-                "genre": "horror",
-                "authorId": 1
+                "genre": "horror"
               },
               {
                 "title": "IT",
-                "genre": "horror",
-                "authorId": 1
+                "genre": "horror"
               }
             ]
           }
         ]
       },
       {
-        "id": 2,
         "name": "Allen & Unwin",
         "country": "UK",
         "Author": [
           {
-            "id": 2,
             "name": "J.R.R. Tolkien",
-            "publisherId": 2,
             "Book": [
               {
                 "title": "The Hobbit",
-                "genre": "fantasy",
-                "authorId": 2
+                "genre": "fantasy"
               },
               {
                 "title": "The Fellowship of the Ring",
-                "genre": "fantasy",
-                "authorId": 2
+                "genre": "fantasy"
               }
             ]
           }

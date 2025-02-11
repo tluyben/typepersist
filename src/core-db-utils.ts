@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { CoreDB, TableDefinition, FieldDef } from "./core-db";
 
 export interface TableData extends TableDefinition {
@@ -150,7 +151,7 @@ export async function importFromJSON(
               for (const childRecord of childRecords) {
                 const { id: childId, ...childData } = childRecord;
                 // Add foreign key reference
-                childData[`${tableName}Id`] = parentId;
+                childData[`${_.camelCase(tableName)}Id`] = parentId;
                 await importRecord(db, childTable, childData, data.schema);
               }
             }
@@ -220,6 +221,7 @@ async function importRecord(
     nestedTables.forEach((table) => delete parentData[table]);
 
     // Insert parent record
+    // console.log("my records", await dumpRecords(db, "Publisher"));
     const insertedId = id || (await db.insert(tableName, parentData));
     // console.log(`Successfully inserted ${tableName} with id:`, insertedId);
 
@@ -345,6 +347,22 @@ export function generateSQL(db: CoreDB, data: ImportExportData): string {
   }
 
   return sql;
+}
+
+export async function dumpRecords(
+  db: CoreDB,
+  tableName: string
+): Promise<Record<string, any>[]> {
+  try {
+    const records = await db.query({
+      table: [{ table: tableName }],
+    });
+
+    return records;
+  } catch (error) {
+    console.error(`Error dumping records from ${tableName}:`, error);
+    return [];
+  }
 }
 
 export async function listTables(db: CoreDB): Promise<TableDefinition[]> {

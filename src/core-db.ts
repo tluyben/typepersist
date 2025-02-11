@@ -1,4 +1,5 @@
 import { Knex, knex } from "knex-fork";
+import _ from "lodash";
 
 export type Sort = {
   fieldId: string;
@@ -219,12 +220,59 @@ export class CoreDB {
     this.currentDB = name;
   }
 
+  translateType(
+    table: Knex.CreateTableBuilder,
+    f: FieldDef
+  ): Knex.ColumnBuilder {
+    const columnType = this.getKnexFieldType(f);
+    let column;
+    switch (columnType) {
+      case "text":
+        column = table.text(f.name);
+        break;
+      case "uuid":
+        column = table.uuid(f.name);
+        break;
+      case "integer":
+        column = table.integer(f.name);
+        break;
+      case "decimal":
+        column = table.decimal(f.name, f.precision || 10, 2);
+        break;
+      case "float":
+        column = table.float(f.name, f.precision || 8);
+        break;
+      case "double":
+        column = table.double(f.name, f.precision || 15);
+        break;
+      case "boolean":
+        column = table.boolean(f.name);
+        break;
+      case "binary":
+        column = table.binary(f.name);
+        break;
+      case "date":
+        column = table.date(f.name);
+        break;
+      case "datetime":
+        column = table.datetime(f.name);
+        break;
+      case "time":
+        column = table.time(f.name);
+        break;
+      default:
+        throw new Error(`Invalid column type: ${columnType}`);
+    }
+    return column;
+  }
+
   async schemaCreateOrUpdate(tableDefinition: TableDefinition): Promise<void> {
     const exists = await this.knexInstance.schema.hasTable(
       tableDefinition.name
     );
 
     if (!exists) {
+      // console.log("DOES NOT EXIST", tableDefinition);
       await this.knexInstance.schema.createTable(
         tableDefinition.name,
         (table) => {
@@ -236,6 +284,7 @@ export class CoreDB {
             let column;
             if (knexType === "") continue; // Skip ReferenceOneToMany and ReferenceManyToMany as they're handled separately
 
+            // console.log("Field", field);
             if (field.type === "ReferenceManyToOne" && field.foreignTable) {
               // Handle foreign key reference directly during table creation
               column = table
@@ -245,43 +294,7 @@ export class CoreDB {
                 .inTable(field.foreignTable)
                 .onDelete("CASCADE");
             } else {
-              switch (knexType) {
-                case "text":
-                  column = table.text(field.name);
-                  break;
-                case "uuid":
-                  column = table.uuid(field.name);
-                  break;
-                case "integer":
-                  column = table.integer(field.name);
-                  break;
-                case "decimal":
-                  column = table.decimal(field.name, field.precision || 10, 2);
-                  break;
-                case "float":
-                  column = table.float(field.name, field.precision || 8);
-                  break;
-                case "double":
-                  column = table.double(field.name, field.precision || 15);
-                  break;
-                case "boolean":
-                  column = table.boolean(field.name);
-                  break;
-                case "binary":
-                  column = table.binary(field.name);
-                  break;
-                case "date":
-                  column = table.date(field.name);
-                  break;
-                case "datetime":
-                  column = table.datetime(field.name);
-                  break;
-                case "time":
-                  column = table.time(field.name);
-                  break;
-                default:
-                  throw new Error(`Invalid column type: ${knexType}`);
-              }
+              column = this.translateType(table, field);
             }
 
             if (field.required) {
@@ -303,6 +316,7 @@ export class CoreDB {
         }
       );
     } else {
+      // console.log("DOES EXIST", tableDefinition);
       // Get existing columns
       const existingColumns = await this.knexInstance(
         tableDefinition.name
@@ -331,6 +345,14 @@ export class CoreDB {
         const existingColumn = existingColumns[field.name];
         const expectedType = knexType.toUpperCase();
 
+        // console.log(
+        //   "Existing columns etc",
+        //   existingColumn,
+        //   existingColumns,
+        //   expectedType,
+        //   indexNames
+        // );
+
         // Check if column exists and matches requirements
         if (existingColumn) {
           const knexType = this.getKnexFieldType(field);
@@ -338,8 +360,8 @@ export class CoreDB {
           const expectedType = knexType.toLowerCase();
           const currentNullable = existingColumn.nullable;
           const expectedNullable = !field.required;
-          const currentDefault = existingColumn.defaultValue;
-          const expectedDefault = field.defaultValue;
+          const currentDefault = existingColumn.defaultValue ?? null;
+          const expectedDefault = field.defaultValue ?? null;
 
           // If everything matches, skip this column
           if (
@@ -347,16 +369,89 @@ export class CoreDB {
             currentNullable === expectedNullable &&
             currentDefault === expectedDefault
           ) {
-            continue;
+            // Check if foreign key constraint exists for ReferenceManyToOne
+            if (field.type === "ReferenceManyToOne" && field.foreignTable) {
+              const foreignKeys = await this.getForeignKeys(
+                tableDefinition.name
+              );
+              const hasForeignKey = foreignKeys.some(
+                (fk: any) =>
+                  fk.from === field.name &&
+                  fk.table === field.foreignTable &&
+                  fk.to === "id"
+              );
+
+              if (hasForeignKey) {
+                continue; // Skip if foreign key is already properly set up
+              }
+            } else {
+              continue; // Skip if all other properties match
+            }
           }
 
-          // If something doesn't match, we need to recreate the column
-          await this.knexInstance.schema.alterTable(
-            tableDefinition.name,
-            (table) => {
-              table.dropColumn(field.name);
-            }
-          );
+          // If we reach here, something doesn't match, so we need to modify the column
+          // For SQLite, we need to recreate the table since it doesn't support ALTER COLUMN
+          if (this.knexInstance.client.config.client === "sqlite3") {
+            // Create a new table with the correct schema
+            const tempTableName = `${tableDefinition.name}_temp`;
+            await this.knexInstance.schema.createTable(
+              tempTableName,
+              (table) => {
+                table.increments("id").primary();
+                for (const f of tableDefinition.fields) {
+                  if (f.name === field.name) {
+                    // Add the column with new specifications
+                    let column;
+                    if (f.type === "ReferenceManyToOne" && f.foreignTable) {
+                      column = table
+                        .integer(f.name)
+                        .unsigned()
+                        .references("id")
+                        .inTable(f.foreignTable)
+                        .onDelete("CASCADE");
+                    } else {
+                      column = this.translateType(table, f);
+                    }
+                    if (f.required) column.notNullable();
+                    if (f.defaultValue !== undefined)
+                      column.defaultTo(f.defaultValue);
+                  } else {
+                    // Copy existing column specifications
+                    const existingCol = existingColumns[f.name];
+                    if (existingCol) {
+                      let column = this.translateType(table, f);
+                      if (!existingCol.nullable) column.notNullable();
+                      if (existingCol.defaultValue !== undefined) {
+                        column.defaultTo(existingCol.defaultValue);
+                      }
+                    }
+                  }
+                }
+              }
+            );
+
+            // Copy data to temp table
+            await this.knexInstance.raw(
+              `INSERT INTO ${tempTableName} SELECT * FROM ${tableDefinition.name}`
+            );
+
+            // Drop original table
+            await this.knexInstance.schema.dropTable(tableDefinition.name);
+
+            // Rename temp table to original name
+            await this.knexInstance.schema.renameTable(
+              tempTableName,
+              tableDefinition.name
+            );
+          } else {
+            // For other databases that support ALTER COLUMN
+            await this.knexInstance.schema.alterTable(
+              tableDefinition.name,
+              (table) => {
+                table.dropColumn(field.name);
+              }
+            );
+          }
         }
 
         // Add column with correct specifications
@@ -372,43 +467,7 @@ export class CoreDB {
                 .inTable(field.foreignTable)
                 .onDelete("CASCADE");
             } else {
-              switch (knexType) {
-                case "text":
-                  column = table.text(field.name);
-                  break;
-                case "uuid":
-                  column = table.uuid(field.name);
-                  break;
-                case "integer":
-                  column = table.integer(field.name);
-                  break;
-                case "decimal":
-                  column = table.decimal(field.name, field.precision || 10, 2);
-                  break;
-                case "float":
-                  column = table.float(field.name, field.precision || 8);
-                  break;
-                case "double":
-                  column = table.double(field.name, field.precision || 15);
-                  break;
-                case "boolean":
-                  column = table.boolean(field.name);
-                  break;
-                case "binary":
-                  column = table.binary(field.name);
-                  break;
-                case "date":
-                  column = table.date(field.name);
-                  break;
-                case "datetime":
-                  column = table.datetime(field.name);
-                  break;
-                case "time":
-                  column = table.time(field.name);
-                  break;
-                default:
-                  throw new Error(`Invalid column type: ${knexType}`);
-              }
+              column = this.translateType(table, field);
             }
 
             if (field.required) {
@@ -476,7 +535,7 @@ export class CoreDB {
   }
 
   async schemaConnect(parentName: string, childName: string): Promise<void> {
-    const foreignKeyField = `${parentName}Id`;
+    const foreignKeyField = `${_.camelCase(parentName)}Id`;
 
     // Check if tables exist
     const parentExists = await this.knexInstance.schema.hasTable(parentName);
@@ -496,11 +555,18 @@ export class CoreDB {
     const foreignKeys = await this.getForeignKeys(childName);
     const hasForeignKey = foreignKeys.some(
       (fk: any) =>
-        fk.from === foreignKeyField && fk.table === parentName && fk.to === "id"
+        fk.from.toLowerCase() === foreignKeyField.toLowerCase() &&
+        fk.table === parentName &&
+        fk.to === "id"
     );
 
     // If either the column doesn't exist or it exists but without proper foreign key
-    if (!childColumns[foreignKeyField] || !hasForeignKey) {
+    if (
+      !Object.keys(childColumns).find(
+        (k: string) => k.toLowerCase() === foreignKeyField.toLowerCase()
+      ) ||
+      !hasForeignKey
+    ) {
       // Drop existing column if it exists without proper foreign key
       if (childColumns[foreignKeyField]) {
         await this.knexInstance.schema.alterTable(childName, (table) => {
@@ -693,7 +759,7 @@ export class CoreDB {
 
       // Check if foreign key exists
       const childColumns = await this.knexInstance(childTable).columnInfo();
-      const expectedForeignKey = `${parentTable}Id`;
+      const expectedForeignKey = `${_.camelCase(parentTable)}Id`;
 
       if (!childColumns[expectedForeignKey]) {
         throw new Error(
@@ -769,7 +835,7 @@ export class CoreDB {
 
     const result = { ...parent };
     const childTable = tables[depth].table;
-    const foreignKey = `${tables[depth - 1].table}Id`;
+    const foreignKey = `${_.camelCase(tables[depth - 1].table)}Id`;
 
     let childQuery = this.knexInstance(childTable).where(foreignKey, parent.id);
 

@@ -51,7 +51,10 @@ describe("CoreDB", () => {
 
       const updatedTableDef = {
         ...userTableDef,
-        fields: [...userTableDef.fields, { name: "address", type: "Text" as FieldType }],
+        fields: [
+          ...userTableDef.fields,
+          { name: "address", type: "Text" as FieldType },
+        ],
       };
 
       await expect(
@@ -93,7 +96,11 @@ describe("CoreDB", () => {
           { name: "dateField", type: "Date" as FieldType },
           { name: "dateTimeField", type: "Datetime" as FieldType },
           { name: "timeField", type: "Time" as FieldType },
-          { name: "enumField", type: "Enum" as FieldType, options: ["A", "B", "C"] },
+          {
+            name: "enumField",
+            type: "Enum" as FieldType,
+            options: ["A", "B", "C"],
+          },
         ],
       };
 
