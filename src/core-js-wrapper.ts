@@ -29,9 +29,11 @@ export class SchemaWrapper {
   private fields: FieldDef[] = [];
   private indexes: { fields: string[]; type: "Unique" | "Default" }[] = [];
   private tableName: string;
+  private wrapper: Wrapper;
 
-  constructor(tableName: string) {
+  constructor(tableName: string, wrapper: Wrapper) {
     this.tableName = tableName;
+    this.wrapper = wrapper;
   }
 
   field(name: string): SchemaFieldBuilder {
@@ -54,6 +56,10 @@ export class SchemaWrapper {
 
   dump(): TableDefinition {
     return this.build();
+  }
+
+  async execute(): Promise<void> {
+    await this.wrapper.createTable(this);
   }
 
   compoundPrimaryKey(fields: string[]) {
@@ -190,8 +196,16 @@ export class QueryWrapper {
     return this;
   }
 
+  andWhere(field: string, cmp: Cmp, value: any): QueryWrapper {
+    return this.and(field, cmp, value);
+  }
+
   and(field: string, cmp: Cmp, value: any): QueryWrapper {
     return this.where(field, cmp, value);
+  }
+
+  orWhere(field: string, cmp: Cmp, value: any): QueryWrapper {
+    return this.or(field, cmp, value);
   }
 
   or(field: string, cmp: Cmp, value: any): QueryWrapper {
@@ -330,7 +344,7 @@ export class Wrapper {
   }
 
   schema(tableName: string): SchemaWrapper {
-    return new SchemaWrapper(tableName);
+    return new SchemaWrapper(tableName, this);
   }
 
   query(tableName: string): QueryWrapper {

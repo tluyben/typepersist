@@ -11,8 +11,8 @@ describe("CoreJS Wrapper", () => {
     await db.close();
   });
 
-  it("should create a table with schema builder", async () => {
-    const schema = db
+  it("should create a table with schema builder using execute()", async () => {
+    await db
       .schema("users")
       .field("name")
       .type("Text")
@@ -24,9 +24,8 @@ describe("CoreJS Wrapper", () => {
       .field("email")
       .type("Text")
       .index("Unique")
-      .done();
-
-    await db.createTable(schema);
+      .done()
+      .execute();
 
     // Insert test data
     const id = await db.insert("users", {
@@ -48,7 +47,7 @@ describe("CoreJS Wrapper", () => {
   });
 
   it("should create table with compound indexes", async () => {
-    const schema = db
+    await db
       .schema("products")
       .field("name")
       .type("Text")
@@ -60,9 +59,8 @@ describe("CoreJS Wrapper", () => {
       .type("Text")
       .done()
       .compoundDefaultKey(["name", "category"])
-      .compoundUniqueKey(["category", "sku"]);
-
-    await db.createTable(schema);
+      .compoundUniqueKey(["category", "sku"])
+      .execute();
 
     // Insert a record
     await db.insert("products", {
@@ -90,6 +88,13 @@ describe("CoreJS Wrapper", () => {
     ).resolves.not.toThrow();
 
     // Verify the schema dump includes compound indexes
+    const schema = db.schema("products")
+      .field("name").type("Text").done()
+      .field("category").type("Text").done()
+      .field("sku").type("Text").done()
+      .compoundDefaultKey(["name", "category"])
+      .compoundUniqueKey(["category", "sku"]);
+
     const definition = schema.dump();
     expect(definition.compoundIndexes).toEqual([
       { fields: ["name", "category"], type: "Default" },
@@ -99,7 +104,7 @@ describe("CoreJS Wrapper", () => {
 
   it("should support table joins", async () => {
     // Create posts table with foreign key
-    const postsSchema = db
+    await db
       .schema("posts")
       .field("title")
       .type("Text")
@@ -108,9 +113,8 @@ describe("CoreJS Wrapper", () => {
       .field("usersId")
       .type("ReferenceManyToOne")
       .reference("users")
-      .done();
-
-    await db.createTable(postsSchema);
+      .done()
+      .execute();
 
     // Insert test post
     const postId = await db.insert("posts", {
@@ -154,7 +158,7 @@ describe("CoreJS Wrapper", () => {
 
   it("should support filtering nested data with like patterns", async () => {
     // Create publishers table
-    const publisherSchema = db
+    await db
       .schema("publishers")
       .field("name")
       .type("Text")
@@ -162,11 +166,11 @@ describe("CoreJS Wrapper", () => {
       .done()
       .field("country")
       .type("Text")
-      .done();
-    await db.createTable(publisherSchema);
+      .done()
+      .execute();
 
     // Create authors table with publisher reference
-    const authorSchema = db
+    await db
       .schema("authors")
       .field("name")
       .type("Text")
@@ -175,11 +179,11 @@ describe("CoreJS Wrapper", () => {
       .field("publishersId")
       .type("ReferenceManyToOne")
       .reference("publishers")
-      .done();
-    await db.createTable(authorSchema);
+      .done()
+      .execute();
 
     // Create books table with author reference
-    const bookSchema = db
+    await db
       .schema("books")
       .field("title")
       .type("Text")
@@ -191,8 +195,8 @@ describe("CoreJS Wrapper", () => {
       .field("authorsId")
       .type("ReferenceManyToOne")
       .reference("authors")
-      .done();
-    await db.createTable(bookSchema);
+      .done()
+      .execute();
 
     // Insert test data
     const vikingId = await db.insert("publishers", {
