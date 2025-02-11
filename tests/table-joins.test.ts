@@ -1,4 +1,4 @@
-import { CoreDB, TableDefinition } from "../core-db";
+import { CoreDB, TableDefinition } from "../src/core-db";
 import fs from "fs";
 
 describe("Table Joins", () => {

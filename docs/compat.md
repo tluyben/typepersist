@@ -1,0 +1,30 @@
+```
+export enum FieldUiTypeEnum {
+  Text = 'Text',
+  LongText = 'LongText',
+  Integer = 'Integer',
+  Float = 'Float',
+  Decimal = 'Decimal',
+  Double = 'Double',
+  Date = 'Date',
+  Time = 'Time',
+  DateTime = 'DateTime',
+  Money = 'Money',
+  Boolean = 'Boolean',
+  Video = 'Video',
+  Image = 'Image',
+  Document = 'Document',
+  Choice = 'Choice',
+  Percentage = 'Percentage',
+  Markdown = 'Markdown',
+  HTML = 'HTML',
+  Color = 'Color',
+  User = 'User',
+  Lookup = 'Lookup',
+  Sublist = 'Sublist',
+  ManyToMany = 'ManyToMany',
+  Link = 'Link',
+  Formula = 'Formula',
+  FieldPicker = 'FieldPicker'
+}
+```
