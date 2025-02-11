@@ -1,0 +1,113 @@
+{
+  "schema": [
+    {
+      "name": "Publisher",
+      "implementation": "Static",
+      "fields": [
+        {
+          "name": "name",
+          "type": "Text",
+          "required": true
+        },
+        {
+          "name": "country",
+          "type": "Text"
+        }
+      ]
+    },
+    {
+      "name": "Author",
+      "implementation": "Static",
+      "fields": [
+        {
+          "name": "name",
+          "type": "Text",
+          "required": true
+        },
+        {
+          "name": "publisherId",
+          "type": "ReferenceManyToOne",
+          "required": true,
+          "foreignTable": "Publisher",
+          "indexed": "Foreign",
+          "indexedFields": ["publisherId"]
+        }
+      ]
+    },
+    {
+      "name": "Book",
+      "implementation": "Static",
+      "fields": [
+        {
+          "name": "title",
+          "type": "Text",
+          "required": true
+        },
+        {
+          "name": "genre",
+          "type": "Text"
+        },
+        {
+          "name": "authorId",
+          "type": "ReferenceManyToOne",
+          "required": true,
+          "foreignTable": "Author",
+          "indexed": "Foreign",
+          "indexedFields": ["authorId"]
+        }
+      ]
+    }
+  ],
+  "data": {
+    "Publisher": [
+      {
+        "id": 1,
+        "name": "Viking Press",
+        "country": "USA",
+        "Author": [
+          {
+            "id": 1,
+            "name": "Stephen King",
+            "publisherId": 1,
+            "Book": [
+              {
+                "title": "The Shining",
+                "genre": "horror",
+                "authorId": 1
+              },
+              {
+                "title": "IT",
+                "genre": "horror",
+                "authorId": 1
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Allen & Unwin",
+        "country": "UK",
+        "Author": [
+          {
+            "id": 2,
+            "name": "J.R.R. Tolkien",
+            "publisherId": 2,
+            "Book": [
+              {
+                "title": "The Hobbit",
+                "genre": "fantasy",
+                "authorId": 2
+              },
+              {
+                "title": "The Fellowship of the Ring",
+                "genre": "fantasy",
+                "authorId": 2
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

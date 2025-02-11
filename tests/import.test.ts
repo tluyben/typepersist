@@ -147,6 +147,85 @@ describe("Import Functionality", () => {
     });
   });
 
+  describe("Nested Data Import", () => {
+    it("should import nested data with relationships", async () => {
+      // Load and import the nested data example
+      const nestedData = JSON.parse(
+        fs.readFileSync(path.join("examples", "nested-data.json"), "utf8")
+      );
+      await importFromJSON(db, nestedData);
+
+      // Verify Publisher data
+      const publishers = await db.query({
+        table: [{ table: "Publisher" }],
+      });
+      expect(publishers).toHaveLength(2);
+      expect(publishers[0].name).toBe("Viking Press");
+      expect(publishers[1].name).toBe("Allen & Unwin");
+
+      // Verify nested relationships with query
+      const results = await db.query({
+        table: [
+          { table: "Publisher" },
+          { table: "Author" },
+          { table: "Book" },
+        ],
+      });
+
+      expect(results).toHaveLength(2);
+      
+      // Check Viking Press and Stephen King's books
+      const vikingPress = results.find(p => p.name === "Viking Press");
+      expect(vikingPress.Author).toHaveLength(1);
+      expect(vikingPress.Author[0].name).toBe("Stephen King");
+      expect(vikingPress.Author[0].Book).toHaveLength(2);
+      expect(vikingPress.Author[0].Book[0].title).toBe("The Shining");
+      expect(vikingPress.Author[0].Book[1].title).toBe("IT");
+
+      // Check Allen & Unwin and Tolkien's books
+      const allenUnwin = results.find(p => p.name === "Allen & Unwin");
+      expect(allenUnwin.Author).toHaveLength(1);
+      expect(allenUnwin.Author[0].name).toBe("J.R.R. Tolkien");
+      expect(allenUnwin.Author[0].Book).toHaveLength(2);
+      expect(allenUnwin.Author[0].Book[0].title).toBe("The Hobbit");
+      expect(allenUnwin.Author[0].Book[1].title).toBe("The Fellowship of the Ring");
+    });
+
+    it("should maintain referential integrity with nested data", async () => {
+      const nestedData = JSON.parse(
+        fs.readFileSync(path.join("examples", "nested-data.json"), "utf8")
+      );
+      await importFromJSON(db, nestedData);
+
+      // Query books with author filter
+      const results = await db.query({
+        table: [
+          { table: "Publisher" },
+          { table: "Author" },
+          {
+            table: "Book",
+            query: {
+              left: "genre",
+              leftType: "Field",
+              cmp: "eq",
+              right: "horror",
+              rightType: "Value",
+            },
+          },
+        ],
+      });
+
+      // Should only get Viking Press -> Stephen King -> horror books
+      expect(results).toHaveLength(2); // Still get both publishers
+      const vikingPress = results.find(p => p.name === "Viking Press");
+      expect(vikingPress.Author[0].Book).toHaveLength(2); // Both horror books
+      expect(vikingPress.Author[0].Book.every((b: { genre: string }) => b.genre === "horror")).toBe(true);
+
+      const allenUnwin = results.find(p => p.name === "Allen & Unwin");
+      expect(allenUnwin.Author[0].Book).toHaveLength(0); // No horror books
+    });
+  });
+
   describe("Error Handling", () => {
     it("should handle invalid import format", async () => {
       const invalidData = { foo: "bar" } as any;

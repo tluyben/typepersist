@@ -18,44 +18,61 @@ export interface DataOnlyImport {
 export interface SchemaAndDataImport {
   schema: TableDefinition[];
   data: {
-    [tableName: string]: Record<string, any>[];
+    [tableName: string]: (Record<string, any> & {
+      [childTable: string]: Record<string, any>[];
+    })[];
   };
 }
 
-export type ImportFormat = ImportExportData | SchemaOnlyImport | DataOnlyImport | SchemaAndDataImport;
+export type ImportFormat =
+  | ImportExportData
+  | SchemaOnlyImport
+  | DataOnlyImport
+  | SchemaAndDataImport;
 
 function isSchemaOnlyImport(data: any): data is SchemaOnlyImport {
-  return Array.isArray(data) && data.every(table => 
-    typeof table === 'object' && 
-    'name' in table && 
-    'fields' in table &&
-    Array.isArray(table.fields)
+  return (
+    Array.isArray(data) &&
+    data.every(
+      (table) =>
+        typeof table === "object" &&
+        "name" in table &&
+        "fields" in table &&
+        Array.isArray(table.fields)
+    )
   );
 }
 
 function isDataOnlyImport(data: any): data is DataOnlyImport {
-  return typeof data === 'object' && 
-    !Array.isArray(data) && 
-    !('schema' in data) && 
-    !('tables' in data) &&
-    Object.values(data).every(value => Array.isArray(value));
+  return (
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    !("schema" in data) &&
+    !("tables" in data) &&
+    Object.values(data).every((value) => Array.isArray(value))
+  );
 }
 
 function isSchemaAndDataImport(data: any): data is SchemaAndDataImport {
-  return typeof data === 'object' && 
-    'schema' in data && 
-    'data' in data &&
+  return (
+    typeof data === "object" &&
+    "schema" in data &&
+    "data" in data &&
     Array.isArray(data.schema) &&
-    typeof data.data === 'object';
+    typeof data.data === "object"
+  );
 }
 
 function isLegacyImport(data: any): data is ImportExportData {
-  return typeof data === 'object' && 
-    'tables' in data && 
-    Array.isArray(data.tables);
+  return (
+    typeof data === "object" && "tables" in data && Array.isArray(data.tables)
+  );
 }
 
-async function connectRelatedTables(db: CoreDB, schema: TableDefinition[]): Promise<void> {
+async function connectRelatedTables(
+  db: CoreDB,
+  schema: TableDefinition[]
+): Promise<void> {
   for (const table of schema) {
     for (const field of table.fields) {
       if (field.type === "ReferenceManyToOne" && field.foreignTable) {
@@ -65,8 +82,13 @@ async function connectRelatedTables(db: CoreDB, schema: TableDefinition[]): Prom
   }
 }
 
-export async function importFromJSON(db: CoreDB, data: ImportFormat): Promise<void> {
+export async function importFromJSON(
+  db: CoreDB,
+  data: ImportFormat
+): Promise<void> {
   try {
+    // console.log("Import format:", JSON.stringify(data, null, 2));
+
     // Handle schema-only import (array of table definitions)
     if (isSchemaOnlyImport(data)) {
       for (const tableDefinition of data) {
@@ -84,7 +106,9 @@ export async function importFromJSON(db: CoreDB, data: ImportFormat): Promise<vo
             await db.insert(tableName, record);
           } catch (error) {
             if (error instanceof Error) {
-              throw new Error(`Failed to insert data into ${tableName}: ${error.message}`);
+              throw new Error(
+                `Failed to insert data into ${tableName}: ${error.message}`
+              );
             }
             throw error;
           }
@@ -105,10 +129,36 @@ export async function importFromJSON(db: CoreDB, data: ImportFormat): Promise<vo
       for (const [tableName, records] of Object.entries(data.data)) {
         for (const record of records) {
           try {
-            await db.insert(tableName, record);
+            // Extract nested data before inserting
+            const { id, ...recordData } = record;
+            const nestedTables = Object.keys(recordData).filter(
+              (key) =>
+                Array.isArray(recordData[key]) &&
+                data.schema.some((s) => s.name === key)
+            );
+
+            // Remove nested data before inserting parent
+            const parentData = { ...recordData };
+            nestedTables.forEach((table) => delete parentData[table]);
+
+            // Insert parent record
+            const parentId = id || (await db.insert(tableName, parentData));
+
+            // Insert nested records
+            for (const childTable of nestedTables) {
+              const childRecords = recordData[childTable];
+              for (const childRecord of childRecords) {
+                const { id: childId, ...childData } = childRecord;
+                // Add foreign key reference
+                childData[`${tableName}Id`] = parentId;
+                await importRecord(db, childTable, childData, data.schema);
+              }
+            }
           } catch (error) {
             if (error instanceof Error) {
-              throw new Error(`Failed to insert data into ${tableName}: ${error.message}`);
+              throw new Error(
+                `Failed to insert data into ${tableName}: ${error.message}`
+              );
             }
             throw error;
           }
@@ -129,7 +179,9 @@ export async function importFromJSON(db: CoreDB, data: ImportFormat): Promise<vo
               await db.insert(table.name, row);
             } catch (error) {
               if (error instanceof Error) {
-                throw new Error(`Failed to insert data into ${table.name}: ${error.message}`);
+                throw new Error(
+                  `Failed to insert data into ${table.name}: ${error.message}`
+                );
               }
               throw error;
             }
@@ -144,28 +196,74 @@ export async function importFromJSON(db: CoreDB, data: ImportFormat): Promise<vo
     if (error instanceof Error) {
       throw error;
     }
+    console.log(error);
     throw new Error("Import failed with unknown error");
+  }
+}
+
+async function importRecord(
+  db: CoreDB,
+  tableName: string,
+  record: Record<string, any>,
+  schema: TableDefinition[]
+): Promise<number> {
+  try {
+    // Extract nested data before inserting
+    const { id, ...recordData } = record;
+    const nestedTables = Object.keys(recordData).filter(
+      (key) =>
+        Array.isArray(recordData[key]) && schema.some((s) => s.name === key)
+    );
+
+    // Remove nested data before inserting parent
+    const parentData = { ...recordData };
+    nestedTables.forEach((table) => delete parentData[table]);
+
+    // Insert parent record
+    const insertedId = id || (await db.insert(tableName, parentData));
+    // console.log(`Successfully inserted ${tableName} with id:`, insertedId);
+
+    // Insert nested records
+    for (const childTable of nestedTables) {
+      const childRecords = recordData[childTable];
+      for (const childRecord of childRecords) {
+        const { id: childId, ...childData } = childRecord;
+        // Add foreign key reference
+        childData[`${tableName}Id`] = insertedId;
+        await importRecord(db, childTable, childData, schema);
+      }
+    }
+
+    return insertedId;
+  } catch (error) {
+    console.error(`Error importing record for ${tableName}:`, error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to insert ${tableName}: ${error.message}`);
+    }
+    throw error;
   }
 }
 
 export async function importFromSQL(db: CoreDB, sql: string): Promise<void> {
   const statements = sql
     .split(";")
-    .map(stmt => stmt.trim())
-    .filter(stmt => stmt.length > 0);
+    .map((stmt) => stmt.trim())
+    .filter((stmt) => stmt.length > 0);
 
   for (const statement of statements) {
     await db.query({
       table: [{ table: "sqlite_master" }],
       query: {
-        And: [{
-          left: "sql",
-          leftType: "Field",
-          cmp: "eq",
-          right: statement,
-          rightType: "Value"
-        }]
-      }
+        And: [
+          {
+            left: "sql",
+            leftType: "Field",
+            cmp: "eq",
+            right: statement,
+            rightType: "Value",
+          },
+        ],
+      },
     });
   }
 }
@@ -176,19 +274,19 @@ export async function exportTables(
   includeData: boolean
 ): Promise<ImportExportData> {
   const result: ImportExportData = {
-    tables: []
+    tables: [],
   };
 
   for (const tableName of tableNames) {
     const definition = await getTableDefinition(db, tableName);
     if (definition) {
       const tableExport: TableData = {
-        ...definition
+        ...definition,
       };
 
       if (includeData) {
         const data = await db.query({
-          table: [{ table: tableName }]
+          table: [{ table: tableName }],
         });
         tableExport.data = data;
       }
@@ -211,16 +309,17 @@ export function generateSQL(db: CoreDB, data: ImportExportData): string {
       // Create table
       sql += `CREATE TABLE IF NOT EXISTS ${table.name} (\n`;
       sql += "  id INTEGER PRIMARY KEY AUTOINCREMENT,\n";
-      
+
       // Add fields
       const fieldDefs = table.fields.map((field: FieldDef) => {
         let def = `  ${field.name} ${field.type}`;
         if (field.required) def += " NOT NULL";
-        if (field.defaultValue !== undefined) def += ` DEFAULT ${field.defaultValue}`;
+        if (field.defaultValue !== undefined)
+          def += ` DEFAULT ${field.defaultValue}`;
         if (field.indexed === "Unique") def += " UNIQUE";
         return def;
       });
-      
+
       sql += fieldDefs.join(",\n");
       sql += "\n);\n\n";
 
@@ -235,7 +334,9 @@ export function generateSQL(db: CoreDB, data: ImportExportData): string {
       if (table.data) {
         table.data.forEach((row: Record<string, any>) => {
           const fields = Object.keys(row).join(", ");
-          const values = Object.values(row).map(v => typeof v === "string" ? `'${v}'` : v).join(", ");
+          const values = Object.values(row)
+            .map((v) => (typeof v === "string" ? `'${v}'` : v))
+            .join(", ");
           sql += `INSERT INTO ${table.name} (${fields}) VALUES (${values});\n`;
         });
         sql += "\n";
