@@ -394,31 +394,31 @@ describe("CoreDB", () => {
       const tx = await db.startTransaction();
 
       try {
-        const userId = await db.insert(
+        const userId = await tx.insert(
           "users",
           {
             name: "John Doe",
             email: "john@example.com",
-          },
-          tx
+          }
+          // tx
         );
 
-        await db.insert(
+        await tx.insert(
           "profiles",
           {
             userId,
             bio: "Software Developer",
-          },
-          tx
+          }
+          // tx
         );
 
-        await tx.commit();
+        await tx.commitTransaction();
 
         // Verify data was saved
         const result = await db.query({ table: [{ table: "users" }] });
         expect(result).toHaveLength(1);
       } catch (error) {
-        await tx.rollback();
+        await tx.rollbackTransaction();
         throw error;
       }
     });
@@ -427,27 +427,27 @@ describe("CoreDB", () => {
       const tx = await db.startTransaction();
 
       try {
-        const userId = await db.insert(
+        const userId = await tx.insert(
           "users",
           {
             name: "John Doe",
             email: "john@example.com",
-          },
-          tx
+          }
+          // tx
         );
 
         // This should fail due to missing required field
-        await db.insert(
+        await tx.insert(
           "profiles",
           {
             bio: "Software Developer",
-          },
-          tx
+          }
+          // tx
         );
 
-        await tx.commit();
+        await tx.commitTransaction();
       } catch (error) {
-        await tx.rollback();
+        await tx.rollbackTransaction();
       }
 
       // Verify no data was saved

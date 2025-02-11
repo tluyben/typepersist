@@ -1,18 +1,28 @@
-import { CoreDB, FieldDef, FieldType, Query, Sort, TableDefinition, Where, WhereCmp } from './core-db';
+import { Knex } from "knex-fork";
+import {
+  CoreDB,
+  FieldDef,
+  FieldType,
+  Query,
+  Sort,
+  TableDefinition,
+  Where,
+  WhereCmp,
+} from "./core-db";
 
 export enum Cmp {
-  Eq = 'eq',
-  Neq = 'neq',
-  Ne = 'ne',
-  Gt = 'gt',
-  Gte = 'gte',
-  Lt = 'lt',
-  Lte = 'lte',
-  Like = 'like',
-  NotLike = 'nlike',
-  In = 'in',
-  NotIn = 'nin',
-  Not = 'not'
+  Eq = "eq",
+  Neq = "neq",
+  Ne = "ne",
+  Gt = "gt",
+  Gte = "gte",
+  Lt = "lt",
+  Lte = "lte",
+  Like = "like",
+  NotLike = "nlike",
+  In = "in",
+  NotIn = "nin",
+  Not = "not",
 }
 
 export class SchemaWrapper {
@@ -35,8 +45,8 @@ export class SchemaWrapper {
   build(): TableDefinition {
     return {
       name: this.tableName,
-      implementation: 'Static',
-      fields: this.fields
+      implementation: "Static",
+      fields: this.fields,
     };
   }
 
@@ -51,7 +61,7 @@ class SchemaFieldBuilder {
 
   constructor(schema: SchemaWrapper, name: string) {
     this.schema = schema;
-    this.field = { name, type: 'Text' };
+    this.field = { name, type: "Text" };
   }
 
   type(type: FieldType) {
@@ -69,8 +79,13 @@ class SchemaFieldBuilder {
     return this;
   }
 
-  index(type: 'Default' | 'Unique' | 'Foreign' = 'Default') {
+  index(type: "Default" | "Unique" | "Foreign" = "Default") {
     this.field.indexed = type;
+    return this;
+  }
+
+  primaryKey() {
+    this.field.indexed = "Unique";
     return this;
   }
 
@@ -97,7 +112,7 @@ export class QueryWrapper {
   constructor(db: CoreDB, tableName: string) {
     this.db = db;
     this.query = {
-      table: [{ table: tableName }]
+      table: [{ table: tableName }],
     };
   }
 
@@ -112,15 +127,17 @@ export class QueryWrapper {
   where(field: string, cmp: Cmp, value: any): QueryWrapper {
     const whereCmp: WhereCmp = {
       left: field,
-      leftType: 'Field',
+      leftType: "Field",
       cmp,
       right: value,
-      rightType: 'Value'
+      rightType: "Value",
     };
 
     if (this.lastJoinedTable) {
       // Add query to the last joined table
-      const joinedTable = this.query.table.find(t => t.table === this.lastJoinedTable);
+      const joinedTable = this.query.table.find(
+        (t) => t.table === this.lastJoinedTable
+      );
       if (joinedTable) {
         joinedTable.query = whereCmp;
       }
@@ -131,7 +148,7 @@ export class QueryWrapper {
         this.query.query = whereCmp;
       } else {
         this.query.query = {
-          And: [this.query.query, whereCmp]
+          And: [this.query.query, whereCmp],
         };
       }
     }
@@ -146,21 +163,23 @@ export class QueryWrapper {
   or(field: string, cmp: Cmp, value: any): QueryWrapper {
     const whereCmp: WhereCmp = {
       left: field,
-      leftType: 'Field',
+      leftType: "Field",
       cmp,
       right: value,
-      rightType: 'Value'
+      rightType: "Value",
     };
 
     if (this.lastJoinedTable) {
       // Add query to the last joined table
-      const joinedTable = this.query.table.find(t => t.table === this.lastJoinedTable);
+      const joinedTable = this.query.table.find(
+        (t) => t.table === this.lastJoinedTable
+      );
       if (joinedTable) {
         if (!joinedTable.query) {
           joinedTable.query = whereCmp;
         } else {
           joinedTable.query = {
-            Or: [joinedTable.query, whereCmp]
+            Or: [joinedTable.query, whereCmp],
           };
         }
       }
@@ -171,7 +190,7 @@ export class QueryWrapper {
         this.query.query = whereCmp;
       } else {
         this.query.query = {
-          Or: [this.query.query, whereCmp]
+          Or: [this.query.query, whereCmp],
         };
       }
     }
@@ -188,10 +207,10 @@ export class QueryWrapper {
     return this;
   }
 
-  orderBy(field: string, direction: 'asc' | 'desc' = 'asc'): QueryWrapper {
+  orderBy(field: string, direction: "asc" | "desc" = "asc"): QueryWrapper {
     const sort: Sort = {
       fieldId: field,
-      direction
+      direction,
     };
 
     if (!this.query.sort) {
@@ -207,6 +226,59 @@ export class QueryWrapper {
     return await this.db.query(this.query);
   }
 
+  async first(): Promise<any | null> {
+    const results = await this.limit(1).execute();
+    return results.length > 0 ? results[0] : null;
+  }
+
+  async exists(): Promise<boolean> {
+    const result = await this.first();
+    return result !== null;
+  }
+
+  // TODO: Implement this with count(*) instead as this si
+  // slow af
+  async count(): Promise<number> {
+    const results = await this.execute();
+    return results.length;
+  }
+
+  // TODO: Implement this with sum(x) instead as this si
+  // slow af
+  async sum(field: string): Promise<number> {
+    const results = await this.execute();
+    return results.reduce((sum, row) => sum + (parseFloat(row[field]) || 0), 0);
+  }
+
+  // TODO: Implement this with avg(x) instead as this si
+  // slow af
+  async avg(field: string): Promise<number> {
+    const results = await this.execute();
+    if (results.length === 0) return 0;
+    const sum = results.reduce(
+      (sum, row) => sum + (parseFloat(row[field]) || 0),
+      0
+    );
+    return sum / results.length;
+  }
+
+  async delete(): Promise<any[]> {
+    const results = await this.execute();
+    const recordsToDelete = [...results]; // Make a copy before deleting
+
+    if (results.length > 0) {
+      const ids = results.map((r) => r.id);
+      await this.db.delete(this.query.table[0].table, ids);
+    }
+
+    // Return the deleted records without their IDs
+    return recordsToDelete.map((r) => {
+      const record = { ...r };
+      delete record.id;
+      return record;
+    });
+  }
+
   dump(): Query {
     return this.query;
   }
@@ -215,8 +287,12 @@ export class QueryWrapper {
 export class Wrapper {
   private db: CoreDB;
 
-  constructor(connectionString: string) {
-    this.db = new CoreDB(connectionString);
+  constructor(connectionString: string | CoreDB) {
+    if (typeof connectionString === "string") {
+      this.db = new CoreDB(connectionString);
+    } else {
+      this.db = connectionString;
+    }
   }
 
   schema(tableName: string): SchemaWrapper {
@@ -225,6 +301,10 @@ export class Wrapper {
 
   query(tableName: string): QueryWrapper {
     return new QueryWrapper(this.db, tableName);
+  }
+
+  coreDb(): CoreDB {
+    return this.db;
   }
 
   async createTable(schema: SchemaWrapper | TableDefinition) {
@@ -244,7 +324,11 @@ export class Wrapper {
     return await this.db.insert(tableName, data);
   }
 
-  async update(tableName: string, id: number, data: Record<string, any>): Promise<void> {
+  async update(
+    tableName: string,
+    id: number,
+    data: Record<string, any>
+  ): Promise<void> {
     await this.db.update(tableName, id, data);
   }
 
@@ -255,5 +339,21 @@ export class Wrapper {
 
   async close(): Promise<void> {
     await this.db.close();
+  }
+
+  async startTransaction(): Promise<Wrapper> {
+    const trx = await this.db.startTransaction();
+    return new Wrapper(trx);
+  }
+
+  async commitTransaction(): Promise<void> {
+    await this.db.commitTransaction();
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    await this.db.rollbackTransaction();
+  }
+  async releaseTransaction(): Promise<void> {
+    await this.db.releaseTransaction();
   }
 }

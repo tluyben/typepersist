@@ -160,16 +160,21 @@ export class CoreDB {
     );
   }
 
-  constructor(connectionString: string) {
+  constructor(connectionString: string | Knex | Knex.Transaction) {
     if (!connectionString) {
       throw new Error("Connection string cannot be empty");
     }
-
-    const { client, config } = this.detectDatabaseType(connectionString);
-    this.knexInstance = knex({
-      client,
-      ...config,
-    });
+    if (typeof connectionString === "string") {
+      const { client, config } = this.detectDatabaseType(
+        connectionString as string
+      );
+      this.knexInstance = knex({
+        client,
+        ...config,
+      });
+    } else {
+      this.knexInstance = connectionString;
+    }
   }
 
   private getKnexFieldType(fieldDef: FieldDef): string {
@@ -308,9 +313,13 @@ export class CoreDB {
             }
 
             if (field.indexed) {
-              column.index(
-                field.indexName || `idx_${tableDefinition.name}_${field.name}`
-              );
+              const indexName =
+                field.indexName || `idx_${tableDefinition.name}_${field.name}`;
+              if (field.indexed === "Unique") {
+                table.unique([field.name], indexName);
+              } else {
+                table.index([field.name], indexName);
+              }
             }
           }
         }
@@ -600,22 +609,65 @@ export class CoreDB {
     return Array.isArray(result) ? result : [];
   }
 
-  async startTransaction(): Promise<Knex.Transaction> {
-    return await this.knexInstance.transaction();
+  async startTransaction(autoCommit = false): Promise<CoreDB> {
+    if (this.knexInstance && "commit" in this.knexInstance) {
+      return this;
+    }
+
+    const tx = new CoreDB(await this.knexInstance.transaction());
+    tx.autoCommit = autoCommit;
+    tx.transactionOpen = true;
+    return tx;
+  }
+
+  async commitTransaction(): Promise<void> {
+    if (!this.knexInstance || !("commit" in this.knexInstance)) {
+      throw new Error("Not in a transaction");
+    }
+    this.transactionOpen = false;
+    await (this.knexInstance as Knex.Transaction).commit();
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    if (!this.knexInstance || !("commit" in this.knexInstance)) {
+      throw new Error("Not in a transaction");
+    }
+    this.transactionOpen = false;
+    await (this.knexInstance as Knex.Transaction).rollback();
+  }
+
+  protected transactionOpen = false;
+  protected autoCommit = false;
+
+  async releaseTransaction(): Promise<void> {
+    if (!this.knexInstance || !("commit" in this.knexInstance)) {
+      throw new Error("Not in a transaction");
+    }
+    if (this.transactionOpen) {
+      if (this.autoCommit) {
+        this.commitTransaction();
+      } else {
+        this.rollbackTransaction();
+      }
+    }
+  }
+
+  async rawQuery(query: string, args: any[]): Promise<any> {
+    return await this.knexInstance.raw(query, args);
   }
 
   async insert(
     tableName: string,
-    data: Record<string, any>,
-    tx?: Knex.Transaction
+    data: Record<string, any>
+    // tx?: Knex.Transaction
   ): Promise<number> {
-    const queryBuilder = tx || this.knexInstance;
+    const queryBuilder = this.knexInstance;
 
     // Get column info for type validation
     const columns = await queryBuilder(tableName).columnInfo();
 
     // Validate data types
-    for (const [field, value] of Object.entries(data)) {
+    for (let [field, value] of Object.entries(data)) {
       const column = columns[field];
       if (column) {
         if (value === null || value === undefined) {
@@ -651,6 +703,13 @@ export class CoreDB {
           case "updatedAt":
             if (!(value instanceof Date) && isNaN(Date.parse(value))) {
               throw new Error(`Field '${field}' must be a valid date`);
+            }
+            if (!(value instanceof Date)) {
+              value = new Date(value);
+            }
+            // if this is sqlite
+            if (this.knexInstance.client.config.client === "sqlite3") {
+              value = value.toISOString();
             }
             break;
           case "time":
@@ -693,6 +752,7 @@ export class CoreDB {
               `Field '${field}' must be a string value for enum type`
             );
         }
+        data[field] = value;
       }
     }
 
@@ -894,7 +954,14 @@ export class CoreDB {
         });
       });
     } else {
-      const { left, right, cmp } = where;
+      let { left, right, cmp } = where;
+      // if right is a Date object and this is sqlite, then convert it to string
+      if (
+        right instanceof Date &&
+        this.knexInstance.client.config.client === "sqlite3"
+      ) {
+        right = right.toISOString();
+      }
       switch (cmp) {
         case "eq":
           return builder.where(left as string, "=", right);

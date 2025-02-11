@@ -349,6 +349,20 @@ export function generateSQL(db: CoreDB, data: ImportExportData): string {
   return sql;
 }
 
+// dump both structure & data
+export async function dumpTableStdout(db: CoreDB, tableName: string) {
+  const struct = await getTableDefinition(db, tableName);
+  console.log(`Structure of ${tableName}:\n`, JSON.stringify(struct, null, 2));
+  const indexes = await getTableIndexes(db, tableName);
+  console.log(`Indexes of ${tableName}:\n`, JSON.stringify(indexes, null, 2));
+  await dumpRecordsStdout(db, tableName);
+}
+export async function dumpRecordsStdout(db: CoreDB, tableName: string) {
+  const records = await dumpRecords(db, tableName);
+  console.log(`Records from ${tableName}:\n`, JSON.stringify(records, null, 2));
+  return records;
+}
+
 export async function dumpRecords(
   db: CoreDB,
   tableName: string
@@ -393,6 +407,33 @@ export async function listTables(db: CoreDB): Promise<TableDefinition[]> {
   }
 }
 
+export async function getTableIndexes(db: any, tableName: string) {
+  // Get list of indexes
+  const indexes = await db.rawQuery(`SELECT * FROM pragma_index_list(?);`, [
+    tableName,
+  ]);
+
+  // Get the column info for each index
+  const indexDetails = await Promise.all(
+    indexes.map(async (index: any) => {
+      const columns = await db.rawQuery(`SELECT * FROM pragma_index_info(?);`, [
+        index.name,
+      ]);
+      return {
+        ...index,
+        columns: columns.map((col: any) => ({
+          name: col.name,
+          columnRank: col.seqno, // Position of column in index
+          collation: col.coll,
+          sorting: col.desc ? "DESC" : "ASC",
+        })),
+      };
+    })
+  );
+
+  return indexDetails;
+}
+
 export async function getTableDefinition(
   db: CoreDB,
   tableName: string
@@ -423,12 +464,16 @@ export async function getTableDefinition(
     if (tableInfo.length === 0) {
       return undefined;
     }
+    // console.log(tableInfo);
 
-    const columnsQuery = await db.query({
-      table: [{ table: "pragma_table_info('" + tableName + "')" }],
-    });
+    const columnsQuery = await db.rawQuery(
+      "SELECT * FROM pragma_table_info(?)",
+      [tableName]
+    );
 
-    const fields: FieldDef[] = columnsQuery.map((col) => ({
+    // console.log(columnsQuery);
+
+    const fields: FieldDef[] = columnsQuery.map((col: any) => ({
       name: col.name,
       type: col.type.toUpperCase(),
       required: !col.notnull,
