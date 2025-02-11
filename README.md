@@ -46,15 +46,15 @@ await db.schemaCreateOrUpdate({
   fields: [
     { name: "name", type: "Text", required: true },
     { name: "email", type: "Text", indexed: true },
-    { name: "age", type: "Integer" }
-  ]
+    { name: "age", type: "Integer" },
+  ],
 });
 
 // Insert data
 const userId = await db.insert("users", {
   name: "John Doe",
   email: "john@example.com",
-  age: 30
+  age: 30,
 });
 
 // Query data
@@ -65,8 +65,8 @@ const results = await db.query({
     leftType: "Field",
     cmp: "gt",
     right: 25,
-    rightType: "Value"
-  }
+    rightType: "Value",
+  },
 });
 ```
 
@@ -80,21 +80,31 @@ const db = new DB("path/to/database.sqlite");
 
 // Define schema using fluent API
 await db.createTable(
-  db.schema("users")
-    .field("name").type("Text").required().done()
-    .field("email").type("Text").index().done()
-    .field("age").type("Integer").done()
+  db
+    .schema("users")
+    .field("name")
+    .type("Text")
+    .required()
+    .done()
+    .field("email")
+    .type("Text")
+    .index()
+    .done()
+    .field("age")
+    .type("Integer")
+    .done()
 );
 
 // Insert data
 const userId = await db.insert("users", {
   name: "John Doe",
   email: "john@example.com",
-  age: 30
+  age: 30,
 });
 
 // Query data using fluent API
-const results = await db.query("users")
+const results = await db
+  .query("users")
   .where("age", Cmp.Gt, 25)
   .orderBy("name", "asc")
   .limit(10)
@@ -102,6 +112,7 @@ const results = await db.query("users")
 ```
 
 Choose the API that best fits your needs:
+
 - Use `CoreDB` for direct, low-level database operations
 - Use `DB` for a more fluent, chainable API with TypeScript-friendly methods
 
@@ -112,9 +123,7 @@ Choose the API that best fits your needs:
 await db.schemaCreateOrUpdate({
   name: "authors",
   implementation: "Static",
-  fields: [
-    { name: "name", type: "Text", required: true }
-  ]
+  fields: [{ name: "name", type: "Text", required: true }],
 });
 
 await db.schemaCreateOrUpdate({
@@ -122,8 +131,8 @@ await db.schemaCreateOrUpdate({
   implementation: "Static",
   fields: [
     { name: "title", type: "Text", required: true },
-    { name: "publishYear", type: "Integer" }
-  ]
+    { name: "publishYear", type: "Integer" },
+  ],
 });
 
 // Create relationship
@@ -131,11 +140,8 @@ await db.schemaConnect("authors", "books");
 
 // Query related data
 const results = await db.query({
-  table: [
-    { table: "authors" },
-    { table: "books" }
-  ],
-  sort: [{ fieldId: "publishYear", direction: "asc" }]
+  table: [{ table: "authors" }, { table: "books" }],
+  sort: [{ fieldId: "publishYear", direction: "asc" }],
 });
 ```
 
@@ -170,7 +176,7 @@ As this project is still in early development, we welcome contributions but plea
 
 ## License 📄
 
-ISC
+MIT
 
 ## Support 💬
 
