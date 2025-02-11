@@ -800,19 +800,19 @@ export class CoreDB {
   async update(
     tableName: string,
     id: number,
-    data: Record<string, any>,
-    tx?: Knex.Transaction
+    data: Record<string, any>
+    // tx?: Knex.Transaction
   ): Promise<void> {
-    const queryBuilder = tx || this.knexInstance;
+    const queryBuilder = this.knexInstance;
     await queryBuilder(tableName).where("id", id).update(data);
   }
 
   async upsert(
     tableName: string,
-    data: Record<string, any>,
-    tx?: Knex.Transaction
+    data: Record<string, any>
+    // tx?: Knex.Transaction
   ): Promise<number> {
-    const queryBuilder = tx || this.knexInstance;
+    const queryBuilder = this.knexInstance;
     if (data.id) {
       await queryBuilder(tableName).where("id", data.id).update(data);
       return data.id;
@@ -824,10 +824,10 @@ export class CoreDB {
 
   async delete(
     tableName: string,
-    ids: number[],
-    tx?: Knex.Transaction
+    ids: number[]
+    // tx?: Knex.Transaction
   ): Promise<void> {
-    const queryBuilder = tx || this.knexInstance;
+    const queryBuilder = this.knexInstance;
     await queryBuilder(tableName).whereIn("id", ids).delete();
   }
 
