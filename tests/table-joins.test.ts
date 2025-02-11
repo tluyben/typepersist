@@ -303,6 +303,30 @@ describe("Table Joins", () => {
         )
       ).toBe(true);
     });
+
+    it("should filter authors by name starting with Stephen", async () => {
+      const results = await db.query({
+        table: [
+          { table: "publishers" },
+          {
+            table: "authors",
+            query: {
+              left: "name",
+              leftType: "Field",
+              cmp: "like",
+              right: "Stephen%",
+              rightType: "Value",
+            },
+          },
+        ],
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe("Viking Press");
+      expect(results[0].authors).toHaveLength(1);
+      expect(results[0].authors[0].name).toBe("Stephen King");
+      // expect(results[0].authors[0].books).toHaveLength(2);
+    });
   });
 
   describe("Error Cases", () => {

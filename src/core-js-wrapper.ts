@@ -39,6 +39,10 @@ export class SchemaWrapper {
       fields: this.fields
     };
   }
+
+  dump(): TableDefinition {
+    return this.build();
+  }
 }
 
 class SchemaFieldBuilder {
@@ -97,6 +101,14 @@ export class QueryWrapper {
     };
   }
 
+  private lastJoinedTable: string | null = null;
+
+  join(tableName: string): QueryWrapper {
+    this.query.table.push({ table: tableName });
+    this.lastJoinedTable = tableName;
+    return this;
+  }
+
   where(field: string, cmp: Cmp, value: any): QueryWrapper {
     const whereCmp: WhereCmp = {
       left: field,
@@ -106,12 +118,22 @@ export class QueryWrapper {
       rightType: 'Value'
     };
 
-    if (!this.query.query) {
-      this.query.query = whereCmp;
+    if (this.lastJoinedTable) {
+      // Add query to the last joined table
+      const joinedTable = this.query.table.find(t => t.table === this.lastJoinedTable);
+      if (joinedTable) {
+        joinedTable.query = whereCmp;
+      }
+      this.lastJoinedTable = null; // Reset after use
     } else {
-      this.query.query = {
-        And: [this.query.query, whereCmp]
-      };
+      // Add to root query
+      if (!this.query.query) {
+        this.query.query = whereCmp;
+      } else {
+        this.query.query = {
+          And: [this.query.query, whereCmp]
+        };
+      }
     }
 
     return this;
@@ -130,14 +152,29 @@ export class QueryWrapper {
       rightType: 'Value'
     };
 
-    if (!this.query.query) {
-      this.query.query = whereCmp;
+    if (this.lastJoinedTable) {
+      // Add query to the last joined table
+      const joinedTable = this.query.table.find(t => t.table === this.lastJoinedTable);
+      if (joinedTable) {
+        if (!joinedTable.query) {
+          joinedTable.query = whereCmp;
+        } else {
+          joinedTable.query = {
+            Or: [joinedTable.query, whereCmp]
+          };
+        }
+      }
+      this.lastJoinedTable = null; // Reset after use
     } else {
-      this.query.query = {
-        Or: [this.query.query, whereCmp]
-      };
+      // Add to root query
+      if (!this.query.query) {
+        this.query.query = whereCmp;
+      } else {
+        this.query.query = {
+          Or: [this.query.query, whereCmp]
+        };
+      }
     }
-
     return this;
   }
 
@@ -166,13 +203,12 @@ export class QueryWrapper {
     return this;
   }
 
-  join(tableName: string): QueryWrapper {
-    this.query.table.push({ table: tableName });
-    return this;
-  }
-
   async execute(): Promise<any[]> {
     return await this.db.query(this.query);
+  }
+
+  dump(): Query {
+    return this.query;
   }
 }
 
