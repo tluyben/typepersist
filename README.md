@@ -109,6 +109,13 @@ const results = await db
   .orderBy("name", "asc")
   .limit(10)
   .execute();
+
+// Aggregation functions
+const count = await db.query("users").count(); // Count all records
+const sum = await db.query("users").sum("age"); // Sum of ages
+const avg = await db.query("users").avg("age"); // Average age
+const exists = await db.query("users").exists(); // Check if any records exist
+const first = await db.query("users").first(); // Get first record
 ```
 
 Choose the API that best fits your needs:
