@@ -47,6 +47,56 @@ describe("CoreJS Wrapper", () => {
     expect(results[0].age).toBe(30);
   });
 
+  it("should create table with compound indexes", async () => {
+    const schema = db
+      .schema("products")
+      .field("name")
+      .type("Text")
+      .done()
+      .field("category")
+      .type("Text")
+      .done()
+      .field("sku")
+      .type("Text")
+      .done()
+      .compoundDefaultKey(["name", "category"])
+      .compoundUniqueKey(["category", "sku"]);
+
+    await db.createTable(schema);
+
+    // Insert a record
+    await db.insert("products", {
+      name: "Product 1",
+      category: "Category 1",
+      sku: "SKU1",
+    });
+
+    // Try to insert a record that violates the unique compound index
+    await expect(
+      db.insert("products", {
+        name: "Product 2",
+        category: "Category 1", // Same category
+        sku: "SKU1", // Same SKU
+      })
+    ).rejects.toThrow();
+
+    // Should allow same SKU in different category
+    await expect(
+      db.insert("products", {
+        name: "Product 3",
+        category: "Category 2", // Different category
+        sku: "SKU1", // Same SKU
+      })
+    ).resolves.not.toThrow();
+
+    // Verify the schema dump includes compound indexes
+    const definition = schema.dump();
+    expect(definition.compoundIndexes).toEqual([
+      { fields: ["name", "category"], type: "Default" },
+      { fields: ["category", "sku"], type: "Unique" },
+    ]);
+  });
+
   it("should support table joins", async () => {
     // Create posts table with foreign key
     const postsSchema = db
@@ -194,14 +244,15 @@ describe("CoreJS Wrapper", () => {
       .done();
 
     const definition = schema.dump();
-    
+
     expect(definition).toEqual({
       name: "test_table",
       implementation: "Static",
+      compoundIndexes: [],
       fields: [
         { name: "name", type: "Text", required: true },
-        { name: "age", type: "Integer" }
-      ]
+        { name: "age", type: "Integer" },
+      ],
     });
   });
 
@@ -214,7 +265,7 @@ describe("CoreJS Wrapper", () => {
       .limit(10);
 
     const definition = query.dump();
-    
+
     expect(definition).toEqual({
       table: [{ table: "users" }],
       query: {
@@ -224,19 +275,19 @@ describe("CoreJS Wrapper", () => {
             leftType: "Field",
             cmp: "gte",
             right: 25,
-            rightType: "Value"
+            rightType: "Value",
           },
           {
             left: "name",
             leftType: "Field",
             cmp: "like",
             right: "John%",
-            rightType: "Value"
-          }
-        ]
+            rightType: "Value",
+          },
+        ],
       },
       sort: [{ fieldId: "age", direction: "desc" }],
-      limit: 10
+      limit: 10,
     });
   });
 });

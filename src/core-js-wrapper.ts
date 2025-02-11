@@ -27,6 +27,7 @@ export enum Cmp {
 
 export class SchemaWrapper {
   private fields: FieldDef[] = [];
+  private indexes: { fields: string[]; type: "Unique" | "Default" }[] = [];
   private tableName: string;
 
   constructor(tableName: string) {
@@ -47,11 +48,34 @@ export class SchemaWrapper {
       name: this.tableName,
       implementation: "Static",
       fields: this.fields,
+      compoundIndexes: this.indexes,
     };
   }
 
   dump(): TableDefinition {
     return this.build();
+  }
+
+  compoundPrimaryKey(fields: string[]) {
+    this.indexes.push({ fields, type: "Unique" });
+    return this;
+  }
+  primaryKey(fields: string[]) {
+    this.compoundPrimaryKey(fields);
+  }
+  compoundUniqueKey(fields: string[]) {
+    this.indexes.push({ fields, type: "Unique" });
+    return this;
+  }
+  uniqueKey(fields: string[]) {
+    this.compoundUniqueKey(fields);
+  }
+  compoundDefaultKey(fields: string[]) {
+    this.indexes.push({ fields, type: "Default" });
+    return this;
+  }
+  defaultKey(fields: string[]) {
+    this.compoundDefaultKey(fields);
   }
 }
 
@@ -86,6 +110,16 @@ class SchemaFieldBuilder {
 
   primaryKey() {
     this.field.indexed = "Unique";
+    return this;
+  }
+
+  uniqueKey() {
+    this.field.indexed = "Unique";
+    return this;
+  }
+
+  defaultKey() {
+    this.field.indexed = "Default";
     return this;
   }
 

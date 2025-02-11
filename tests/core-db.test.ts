@@ -117,6 +117,49 @@ describe("CoreDB", () => {
       await expect(db.schemaCreateOrUpdate(invalidTableDef)).rejects.toThrow();
     });
 
+    it("should create table with compound indexes", async () => {
+      const tableDef: TableDefinition = {
+        name: "products",
+        implementation: "Static",
+        fields: [
+          { name: "name", type: "Text" as FieldType },
+          { name: "category", type: "Text" as FieldType },
+          { name: "sku", type: "Text" as FieldType },
+        ],
+        compoundIndexes: [
+          { fields: ["name", "category"], type: "Default" },
+          { fields: ["category", "sku"], type: "Unique" },
+        ],
+      };
+
+      await expect(db.schemaCreateOrUpdate(tableDef)).resolves.not.toThrow();
+
+      // Insert a record to test unique compound index
+      await db.insert("products", {
+        name: "Product 1",
+        category: "Category 1",
+        sku: "SKU1",
+      });
+
+      // Try to insert a record that violates the unique compound index
+      await expect(
+        db.insert("products", {
+          name: "Product 2",
+          category: "Category 1", // Same category
+          sku: "SKU1", // Same SKU
+        })
+      ).rejects.toThrow();
+
+      // Should allow same SKU in different category
+      await expect(
+        db.insert("products", {
+          name: "Product 3",
+          category: "Category 2", // Different category
+          sku: "SKU1", // Same SKU
+        })
+      ).resolves.not.toThrow();
+    });
+
     describe("Table Relationships", () => {
       const authorTableDef: TableDefinition = {
         name: "authors",

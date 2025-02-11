@@ -96,6 +96,7 @@ export type TableDefinition = {
   name: string;
   implementation: "Static" | "Dynamic";
   description?: string;
+  compoundIndexes?: { fields: string[]; type: "Unique" | "Default" }[];
   fields: FieldDef[];
 };
 
@@ -277,7 +278,6 @@ export class CoreDB {
     );
 
     if (!exists) {
-      // console.log("DOES NOT EXIST", tableDefinition);
       await this.knexInstance.schema.createTable(
         tableDefinition.name,
         (table) => {
@@ -325,7 +325,6 @@ export class CoreDB {
         }
       );
     } else {
-      // console.log("DOES EXIST", tableDefinition);
       // Get existing columns
       const existingColumns = await this.knexInstance(
         tableDefinition.name
@@ -514,6 +513,31 @@ export class CoreDB {
               );
             }
           }
+        }
+      }
+    }
+    if (tableDefinition.compoundIndexes) {
+      for (const index of tableDefinition.compoundIndexes) {
+        const indexName = `idx_${tableDefinition.name}_${index.fields.join(
+          "_"
+        )}`;
+
+        if (this.knexInstance.client.config.client === "sqlite3") {
+          await this.knexInstance.schema.alterTable(
+            tableDefinition.name,
+            (t) => {
+              if (index.type === "Unique") {
+                t.unique(index.fields, indexName);
+              } else {
+                t.index(index.fields, indexName);
+              }
+            }
+          );
+        } else {
+          // For other databases, we'll need to implement their specific index creation
+          throw new Error(
+            "Index management not implemented for this database type"
+          );
         }
       }
     }
