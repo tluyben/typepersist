@@ -11,6 +11,7 @@ import {
   generateSQL,
   listTables,
   getTableDefinition,
+  dumpRecords,
 } from "./core-db-utils";
 
 // Command line argument parsing
@@ -129,6 +130,14 @@ const handleInput = async (input: string, db: CoreDB) => {
           console.table(tableDefinition.fields);
       }
       break;
+    case "/dump":
+      if (args.length === 0) {
+        console.log("Please provide a table name");
+        break;
+      }
+
+      console.table(dumpRecords(db, args[0]));
+      break;
     case "/create-table":
       if (args.length === 0) {
         console.log("Please provide a table name");
@@ -172,9 +181,12 @@ const handleInput = async (input: string, db: CoreDB) => {
         const newField = {
           name: fieldName,
           type: fieldType as FieldType,
-          indexed: (indexType === "Unique" || indexType === "Default" || indexType === "Foreign" 
-            ? indexType as "Unique" | "Default" | "Foreign" 
-            : undefined),
+          indexed:
+            indexType === "Unique" ||
+            indexType === "Default" ||
+            indexType === "Foreign"
+              ? (indexType as "Unique" | "Default" | "Foreign")
+              : undefined,
         };
 
         const updatedFields = [...existingTable.fields, newField];
@@ -298,6 +310,7 @@ Available commands:
 
 /tables [format]                    List all tables (format: json, sql, default)
 /describe <table> [format]         Show table definition (format: json, sql, default)
+/dump <table>                      Dump table data
 /create-table <name>               Create a new table
 /create-field <table> <field> <type> [index]  Add field to table (index: Default|Unique|Foreign)
 /join-table <parent> <child>       Create foreign key relationship between tables
@@ -346,22 +359,27 @@ Examples:
 };
 
 // Start the application
-main().then(db => {
-  // Start the REPL
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+main()
+  .then((db) => {
+    // Start the REPL
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
 
-  console.log("CoreDB REPL started. Type /help for available commands.");
+    console.log("CoreDB REPL started. Type /help for available commands.");
 
-  rl.on("line", async (input) => {
-    await handleInput(input, db);
+    rl.on("line", async (input) => {
+      await handleInput(input, db);
+      rl.prompt();
+    });
+
     rl.prompt();
+  })
+  .catch((error) => {
+    console.error(
+      "Error:",
+      error instanceof Error ? error.message : String(error)
+    );
+    process.exit(1);
   });
-
-  rl.prompt();
-}).catch(error => {
-  console.error("Error:", error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
