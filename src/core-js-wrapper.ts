@@ -1,4 +1,5 @@
 import { Knex } from "knex-fork";
+import { z } from 'zod';
 import {
   CoreDB,
   FieldDef,
@@ -30,10 +31,17 @@ export class SchemaWrapper {
   private indexes: { fields: string[]; type: "Unique" | "Default" }[] = [];
   private tableName: string;
   private wrapper: Wrapper;
+  private zodSchema?: z.ZodType<any>;
 
   constructor(tableName: string, wrapper: Wrapper) {
     this.tableName = tableName;
     this.wrapper = wrapper;
+  }
+
+  withZodSchema(schema: z.ZodType<any>): SchemaWrapper {
+    this.zodSchema = schema;
+    this.wrapper.setZodSchema(this.tableName, schema);
+    return this;
   }
 
   field(name: string): SchemaFieldBuilder {
@@ -334,6 +342,7 @@ export class QueryWrapper {
 
 export class Wrapper {
   private db: CoreDB;
+  private zodSchemas: Map<string, z.ZodType<any>> = new Map();
 
   constructor(connectionString: string | CoreDB) {
     if (typeof connectionString === "string") {
@@ -341,6 +350,14 @@ export class Wrapper {
     } else {
       this.db = connectionString;
     }
+  }
+
+  setZodSchema(tableName: string, schema: z.ZodType<any>) {
+    this.zodSchemas.set(tableName, schema);
+  }
+
+  getZodSchema(tableName: string): z.ZodType<any> | undefined {
+    return this.zodSchemas.get(tableName);
   }
 
   schema(tableName: string): SchemaWrapper {
@@ -369,6 +386,10 @@ export class Wrapper {
   }
 
   async insert(tableName: string, data: Record<string, any>): Promise<number> {
+    const schema = this.zodSchemas.get(tableName);
+    if (schema) {
+      data = schema.parse(data);
+    }
     return await this.db.insert(tableName, data);
   }
 
@@ -377,6 +398,19 @@ export class Wrapper {
     id: number,
     data: Record<string, any>
   ): Promise<void> {
+    const schema = this.zodSchemas.get(tableName);
+    if (schema && schema instanceof z.ZodObject) {
+      // Make all fields optional for partial updates
+      const partialSchema = z.object(
+        Object.fromEntries(
+          Object.entries(schema._def.shape()).map(([key, value]) => [
+            key,
+            (value as z.ZodType).optional()
+          ])
+        )
+      );
+      data = partialSchema.parse(data);
+    }
     await this.db.update(tableName, id, data);
   }
 
