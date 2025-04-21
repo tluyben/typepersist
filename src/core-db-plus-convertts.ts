@@ -222,10 +222,12 @@ function parseTypeScript(filePath: string): {
     // Map TypeScript types to CoreDBPlus types
     const coreDBType = mapToCoreDBType(fieldType);
 
-    // Check for primary key from JSDoc comments
-    const isPrimaryKey = ts
-      .getJSDocTags(member)
-      .some((tag) => tag.tagName.text === "primaryKey");
+    // Check for decorators from JSDoc comments
+    const jsDocTags = ts.getJSDocTags(member);
+    const isPrimaryKey = jsDocTags.some(
+      (tag) => tag.tagName.text === "primaryKey"
+    );
+    const isIndexed = jsDocTags.some((tag) => tag.tagName.text === "indexed");
 
     const field: TypeField = {
       name: fieldName,
@@ -253,24 +255,32 @@ function parseTypeScript(filePath: string): {
       field.decorators.push("PrimaryKey");
     }
 
+    if (isIndexed) {
+      if (!field.decorators) {
+        field.decorators = [];
+      }
+      field.decorators.push("Indexed");
+    }
+
     return field;
   }
 
   function mapToCoreDBType(tsType: string): string {
-    switch (tsType.toLowerCase()) {
-      case "string":
-        return "Text";
-      case "number":
-        return "Number";
-      case "boolean":
-        return "Boolean";
-      case "date":
-        return "DateTime";
-      case "text":
-        return "Text";
-      default:
-        return "Text"; // Default to Text for unknown or relationship types
-    }
+    // switch (tsType.toLowerCase()) {
+    //   case "string":
+    //     return "Text";
+    //   case "number":
+    //     return "Number";
+    //   case "boolean":
+    //     return "Boolean";
+    //   case "date":
+    //     return "DateTime";
+    //   case "text":
+    //     return "Text";
+    //   default:
+    //     return "Text"; // Default to Text for unknown or relationship types
+    // }
+    return tsType;
   }
 
   // Get the current type name being processed
@@ -399,7 +409,7 @@ function convertToCoreDBPlusDefinitions(
       output += `    { name: "${
         field.name
       }", type: "${fieldType}", required: ${isRequired}${
-        isIndexed ? ", indexed: true" : ""
+        isIndexed ? ', indexed: "Default"' : ""
       }${isPrimaryKey ? ", primaryKey: true" : ""} },\n`;
     }
 
@@ -420,6 +430,7 @@ function convertToCoreDBPlusDefinitions(
 
 // Get the appropriate field type for CoreDBPlus
 function getFieldType(field: TypeField): string {
+  console.log("xxxx", field.name, field.type);
   if (field.decorators?.includes("PrimaryKey")) {
     return "ID";
   }
