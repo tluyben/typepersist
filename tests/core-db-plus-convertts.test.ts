@@ -5,7 +5,12 @@ import * as path from "path";
 
 describe("CoreDBPlus Transformer", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "typepersist-test-"));
-  const transformerScript = path.join(__dirname, "core-db-plus-convertts.ts");
+  const transformerScript = path.join(
+    __dirname,
+    "..",
+    "src",
+    "core-db-plus-convertts.ts"
+  );
   const exampleTypePath = path.join(__dirname, "../examples/card-pairing.ts");
   const outputPath = path.join(tempDir, "schema.ts");
 
@@ -25,6 +30,8 @@ describe("CoreDBPlus Transformer", () => {
 
     // Read the generated schema
     const schema = fs.readFileSync(outputPath, "utf-8");
+
+    console.log(schema);
 
     // Check if the schema contains the expected table definition
     expect(schema).toContain('name: "cardpairing"');

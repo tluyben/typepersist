@@ -184,8 +184,23 @@ function parseTypeScript(filePath: string): {
     let fieldType = member.type ? member.type.getText() : "any";
     let relationship: RelationshipType | undefined;
 
+    // Check for ManyToOne type
+    if (fieldType.startsWith("ManyToOne<")) {
+      const typeArgs = fieldType.slice(10, -1).split(",");
+      if (typeArgs.length >= 2) {
+        const targetTable = typeArgs[1]
+          .trim()
+          .replace(/["']/g, "")
+          .toLowerCase();
+        relationship = {
+          type: "manyToOne",
+          targetTable,
+        };
+        fieldType = "Text"; // Store foreign key as text
+      }
+    }
     // Check for array types
-    if (fieldType.startsWith("Array<") || fieldType.endsWith("[]")) {
+    else if (fieldType.startsWith("Array<") || fieldType.endsWith("[]")) {
       const baseType = fieldType.startsWith("Array<")
         ? fieldType.slice(6, -1)
         : fieldType.slice(0, -2);
