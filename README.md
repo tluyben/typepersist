@@ -20,6 +20,7 @@ TypePersist is a powerful TypeScript database abstraction layer that lets you pe
 - 🤝 **Relationship Support**: Easily manage and query related data with foreign key relationships
 - ⚡ **Transaction Support**: Built-in transaction management for data integrity
 - 🎨 **Clean API**: Intuitive API design that feels natural to TypeScript developers
+- 🎯 **Enhanced Query Interface with CoreDBPlus**: Additional functionality and capabilities
 
 ## Installation 📦
 
@@ -149,6 +150,67 @@ const avg = await db.query("users").avg("age"); // Average age
 const exists = await db.query("users").exists(); // Check if any records exist
 const first = await db.query("users").first(); // Get first record
 ```
+
+### 3. Using CoreDBPlus
+
+```typescript
+import { CoreDBPlus } from "typepersist";
+
+// Initialize database
+const db = new CoreDBPlus("path/to/database.sqlite");
+
+// Create tables
+await db.createTable({
+  name: "users",
+  fields: [
+    { name: "name", type: "Text", required: true },
+    { name: "email", type: "Text", indexed: true },
+    { name: "age", type: "Integer" },
+  ],
+});
+
+await db.createTable({
+  name: "posts",
+  fields: [
+    { name: "title", type: "Text", required: true },
+    { name: "content", type: "Text" },
+    { name: "userId", type: "Integer" },
+  ],
+});
+
+// Create relationship
+await db.schemaConnect("users", "posts");
+
+// Insert data
+await db.insert("users", {
+  name: "John Doe",
+  email: "john@example.com",
+  age: 30,
+});
+
+// Complex query with joins
+const results = await db.query({
+  table: [{ table: "users" }, { table: "posts" }],
+  field: {
+    users: ["name", "email"],
+    posts: ["title"],
+  },
+  sort: [{ fieldId: "name", direction: "asc" }],
+});
+
+// Results will be nested:
+// {
+//   id: 1,
+//   name: "John",
+//   email: "john@example.com",
+//   posts: [
+//     { id: 1, title: "Post 1" },
+//     { id: 2, title: "Post 2" }
+//   ]
+// }
+```
+
+For more detailed information about CoreDBPlus, see [COREDBPLUS_GUIDE.md](COREDBPLUS_GUIDE.md).
 
 ## Working with Relationships 🔗
 
