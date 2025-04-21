@@ -1,48 +1,45 @@
 {
   "name": "typepersist",
-  "version": "0.5.8",
-  "description": "Persist / query data in databases as easily as accessing Typescript arrays the way you normally do",
+  "version": "0.1.0",
+  "description": "A TypeScript library for type-safe database operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
-    "dopublish": "npm run build && npm publish",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "example": "tsx examples/transform-example.ts",
+    "cli": "tsx src/core-db-plus-cli.ts",
+    "transform": "tsx src/core-db-plus-convertts.ts"
+  },
+  "bin": {
+    "typepersist": "./dist/cli.js",
+    "typepersist-transform": "./dist/core-db-plus-convertts.js"
   },
   "keywords": [
     "typescript",
     "database",
     "orm",
     "sqlite",
-    "query-builder",
     "type-safe"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/tluyben/typepersist"
-  },
   "author": "",
   "license": "MIT",
   "dependencies": {
     "knex-fork": "^3.1.1-d",
     "lodash": "^4.17.21",
-    "sqlite3": "^5.1.7",
-    "zod": "^3.24.2"
+    "sqlite3": "^5.1.6",
+    "tsx": "^4.19.3",
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
-    "@types/lodash": "^4.17.15",
-    "@types/node": "^22.13.1",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
-    "typescript": "^5.7.3"
+    "@types/lodash": "^4.17.16",
+    "@types/node": "^18.15.11",
+    "@types/sqlite3": "^3.1.8",
+    "glob": "^8.1.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.8.3"
   }
 }
