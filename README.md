@@ -29,7 +29,7 @@ npm install typepersist
 
 ## Quick Start 🚀
 
-TypePersist provides two ways to interact with your database:
+TypePersist provides three ways to interact with your database:
 
 ### 1. Using CoreDB (Low-level API) 💪
 
@@ -80,8 +80,8 @@ await db.schemaCreateOrUpdate({
   ],
   compoundIndexes: [
     { fields: ["name", "category"], type: "Default" },
-    { fields: ["category", "sku"], type: "Unique" }
-  ]
+    { fields: ["category", "sku"], type: "Unique" },
+  ],
 });
 ```
 
@@ -150,10 +150,165 @@ const exists = await db.query("users").exists(); // Check if any records exist
 const first = await db.query("users").first(); // Get first record
 ```
 
+### 3. Using TypeSafeDB (Type-Safe API) 🔒
+
+```typescript
+import {
+  TypeSafeDB,
+  eq,
+  And,
+  Or,
+  Where,
+  SortBy,
+  Field,
+  TableField,
+} from "typepersist";
+import { User } from "typepersist";
+
+// Initialize database
+const db = new TypeSafeDB("path/to/database.sqlite");
+
+// Create or update schema based on TypeScript type
+// The table name will be derived from the type name (e.g., "User" -> "user")
+await db.schemaCreateOrUpdate<User>();
+
+// You can also specify a custom table name if needed
+await db.schemaCreateOrUpdate<User>("custom_users");
+
+// Insert data - table name is derived from the type
+const userId = await db.insert<User>({
+  email: "john@example.com",
+  mobileNumber: "+1234567890",
+  countryCode: "+1",
+  firstName: "John",
+  lastName: "Doe",
+  residentialAddress: "123 Main St",
+  suburb: "Downtown",
+  city: "New York",
+  state: "NY",
+  postcode: "10001",
+  country: "USA",
+  passcode: "hashedpasscode",
+  isFaceIdEnabled: true,
+  isPinEnabled: false,
+  pin: "",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
+
+// Query data with type safety - Method 1: Using the query builder
+const user = await db
+  .query<User>("user")
+  .where("email", eq, "john@example.com")
+  .first();
+
+// Complex queries with type safety - Method 1: Using the query builder
+const users = await db
+  .query<User>("user")
+  .or(
+    Where<User>("country", eq, "USA"),
+    And(
+      Where<User>("isFaceIdEnabled", eq, true),
+      Where<User>("isPinEnabled", eq, false)
+    )
+  )
+  .orderBy("lastName", "asc")
+  .orderBy("firstName", "asc")
+  .execute();
+
+// Query data with type safety - Method 2: Using the query method
+// Simple query with field selection
+const users1 = await db.query<User>(
+  Where<User>("email", eq, "john@example.com"),
+  ["email", "id"]
+);
+
+// Query with field aliases
+const users2 = await db.query<User>(
+  Where<User>("email", eq, "john@example.com"),
+  [
+    { field: "email", as: "userEmail" },
+    { field: "firstName", as: "first" },
+    { field: "lastName", as: "last" },
+  ]
+);
+
+// Complex query with AND condition
+const users3 = await db.query<User>(
+  And(
+    Where<User>("email", eq, "john@example.com"),
+    Where<User>("isFaceIdEnabled", eq, true)
+  ),
+  ["email", "id", "firstName", "lastName"],
+  [SortBy<User>("createdAt", "desc")],
+  1, // page
+  10 // limit
+);
+
+// Complex query with nested conditions
+const users4 = await db.query<User>(
+  Or(
+    Where<User>("email", like, "%example.com"),
+    And(Where<User>("country", eq, "USA"), Where<User>("state", eq, "CA"))
+  ),
+  ["email", "id", "country", "state"],
+  [SortBy<User>("lastName"), SortBy<User>("firstName")]
+);
+
+// Multi-table query with field aliases
+// Define types for the tables
+type User = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+type Post = {
+  id: number;
+  userId: number;
+  title: string;
+  content: string;
+};
+
+// Create tables
+await db.schemaCreateOrUpdate<User>();
+await db.schemaCreateOrUpdate<Post>();
+
+// Insert data
+const userId = await db.insert<User>({
+  name: "John Doe",
+  email: "john@example.com",
+});
+
+const postId = await db.insert<Post>({
+  userId: userId,
+  title: "My First Post",
+  content: "This is the content of my first post.",
+});
+
+// Query with table fields and aliases
+const results = await db.query<User, Post>(Where<Post>("userId", eq, userId), [
+  { table: "user", field: "name", as: "authorName" },
+  { table: "user", field: "email", as: "authorEmail" },
+  { table: "post", field: "title", as: "postTitle" },
+  { table: "post", field: "content", as: "postContent" },
+]);
+
+// Update data - table name is derived from the type
+await db.update<User>(userId, {
+  firstName: "Johnny",
+  updatedAt: new Date(),
+});
+
+// Delete data - table name is derived from the type
+await db.delete<User>([userId]);
+```
+
 Choose the API that best fits your needs:
 
 - Use `CoreDB` for direct, low-level database operations
 - Use `DB` for a more fluent, chainable API with TypeScript-friendly methods
+- Use `TypeSafeDB` for full type safety with TypeScript types
 
 ## Working with Relationships 🔗
 
