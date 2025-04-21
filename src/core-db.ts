@@ -953,6 +953,11 @@ export class CoreDB {
         And: where.And.map((w) => this.addTablePrefixToWhere(w, tableName)),
       };
     } else {
+      // Don't add table prefix if it's already prefixed
+      const left = where.left as string;
+      if (left.includes(".")) {
+        return where;
+      }
       return {
         ...where,
         left: `${tableName}.${where.left}`,
