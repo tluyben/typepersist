@@ -418,15 +418,18 @@ function parseTypeScript(filePath: string): {
   visit(sourceFile);
   return { typeDefinitions, relationships };
 }
+export default async function xx() {}
 
 // Convert type definitions to CoreDBPlus table definitions
 function convertToCoreDBPlusDefinitions(
   typeDefinitions: TypeDefinition[],
   relationships: Relationship[]
 ): string {
-  let output = 'import { CoreDBPlus } from "typepersist";\n\n';
-  output += "// Initialize database\n";
-  output += 'const db = new CoreDBPlus("path/to/database.sqlite");\n\n';
+  let output = "";
+  // output += 'import { CoreDBPlus } from "typepersist";\n\n';
+  // output += "// Initialize database\n";
+  // output += 'const db = new CoreDBPlus("path/to/database.sqlite");\n\n';
+
   output += "// Create tables\n";
 
   // Create tables
@@ -485,6 +488,12 @@ function convertToCoreDBPlusDefinitions(
     }
   }
 
+  output =
+    "\nexport default async function createTables(db: any) {\n" +
+    output +
+    "\n}\n";
+
+  console.log(output);
   return output;
 }
 
@@ -530,6 +539,11 @@ function getFieldType(field: TypeField): string {
   // Default to Text for unknown types
   const notFound = field.type.value as string;
   if (!notFound) {
+    throw new Error(
+      `Unknown field type: ${field.type} for field ${field.name}`
+    );
+  }
+  if (["any"].includes(notFound)) {
     throw new Error(
       `Unknown field type: ${field.type} for field ${field.name}`
     );

@@ -212,10 +212,14 @@ describe("CoreDBPlus Transformer", () => {
           data: any; // Invalid type
         };
       `;
-      const schema = runTransformer(createTempTypeFile(content));
+      let hasError = false;
+      try {
+        const schema = runTransformer(createTempTypeFile(content));
+      } catch (e) {
+        hasError = true;
+      }
 
-      expect(schema).toContain('name: "invalid"');
-      expect(schema).toContain('type: "Text"'); // Should default to Text
+      expect(hasError).toBe(true);
     });
   });
 
