@@ -58,8 +58,10 @@ describe("CoreDBPlus Transformer Integration", () => {
       `;
       const schema = runTransformer(createTempTypeFile(content));
 
-      // Execute the generated schema
-      await db.rawQuery(schema, []);
+      // Create a temporary file with the schema and execute it
+      const schemaFile = path.join(tempDir, "schema-exec.ts");
+      fs.writeFileSync(schemaFile, schema);
+      await import(schemaFile);
 
       // Insert test data
       const testUser = {
@@ -93,8 +95,10 @@ describe("CoreDBPlus Transformer Integration", () => {
       `;
       const schema = runTransformer(createTempTypeFile(content));
 
-      // Execute the generated schema
-      await db.rawQuery(schema, []);
+      // Create a temporary file with the schema and execute it
+      const schemaFile = path.join(tempDir, "schema-exec.ts");
+      fs.writeFileSync(schemaFile, schema);
+      await import(schemaFile);
 
       // Insert product without description
       const product1 = {
@@ -141,8 +145,10 @@ describe("CoreDBPlus Transformer Integration", () => {
       `;
       const schema = runTransformer(createTempTypeFile(content));
 
-      // Execute the generated schema
-      await db.rawQuery(schema, []);
+      // Create a temporary file with the schema and execute it
+      const schemaFile = path.join(tempDir, "schema-exec.ts");
+      fs.writeFileSync(schemaFile, schema);
+      await import(schemaFile);
 
       // Create user and profile
       const userId = await db.insert("user", { name: "John Doe" });
@@ -190,8 +196,10 @@ describe("CoreDBPlus Transformer Integration", () => {
       `;
       const schema = runTransformer(createTempTypeFile(content));
 
-      // Execute the generated schema
-      await db.rawQuery(schema, []);
+      // Create a temporary file with the schema and execute it
+      const schemaFile = path.join(tempDir, "schema-exec.ts");
+      fs.writeFileSync(schemaFile, schema);
+      await import(schemaFile);
 
       // Create user and posts
       const userId = await db.insert("user", { name: "John Doe" });
@@ -241,8 +249,10 @@ describe("CoreDBPlus Transformer Integration", () => {
       `;
       const schema = runTransformer(createTempTypeFile(content));
 
-      // Execute the generated schema
-      await db.rawQuery(schema, []);
+      // Create a temporary file with the schema and execute it
+      const schemaFile = path.join(tempDir, "schema-exec.ts");
+      fs.writeFileSync(schemaFile, schema);
+      await import(schemaFile);
 
       // Insert test data
       await db.insert("user", {
