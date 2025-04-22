@@ -487,7 +487,7 @@ function convertToCoreDBPlusDefinitions(
 
 // Get the appropriate field type for CoreDBPlus
 function getFieldType(field: TypeField): string {
-  console.log("xxxx", field.name, field.type);
+  // console.log("xxxx", field.name, field.type);
   if (field.decorators?.includes("PrimaryKey")) {
     return "ID";
   }

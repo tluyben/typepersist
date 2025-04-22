@@ -23,12 +23,10 @@ describe("CoreDBPlus Transformer", () => {
   }
 
   function runTransformer(inputFile: string): string {
-    console.log(
-      "execsync",
-      execSync(
-        `tsx ${transformerScript} ${inputFile} --output-file ${outputPath}`
-      ).toString()
+    const x = execSync(
+      `tsx ${transformerScript} ${inputFile} --output-file ${outputPath}`
     );
+    // console.log("execsync", x.toString());
     return fs.readFileSync(outputPath, "utf-8");
   }
 
