@@ -185,22 +185,23 @@ function parseTypeScript(filePath: string): {
     let relationship: RelationshipType | undefined;
 
     // Check for ManyToOne type
-    if (fieldType.startsWith("ManyToOne<")) {
-      const typeArgs = fieldType.slice(10, -1).split(",");
-      if (typeArgs.length >= 2) {
-        const targetTable = typeArgs[1]
-          .trim()
-          .replace(/["']/g, "")
-          .toLowerCase();
-        relationship = {
-          type: "manyToOne",
-          targetTable,
-        };
-        fieldType = "Text"; // Store foreign key as text
-      }
-    }
-    // Check for array types
-    else if (fieldType.startsWith("Array<") || fieldType.endsWith("[]")) {
+    // if (fieldType.startsWith("ManyToOne<")) {
+    //   const typeArgs = fieldType.slice(10, -1).split(",");
+    //   if (typeArgs.length >= 2) {
+    //     const targetTable = typeArgs[1]
+    //       .trim()
+    //       .replace(/["']/g, "")
+    //       .toLowerCase();
+    //     relationship = {
+    //       type: "manyToOne",
+    //       targetTable,
+    //     };
+    //     fieldType = "Text"; // Store foreign key as text
+    //   }
+    // }
+    // // Check for array types
+    // else
+    if (fieldType.startsWith("Array<") || fieldType.endsWith("[]")) {
       const baseType = fieldType.startsWith("Array<")
         ? fieldType.slice(6, -1)
         : fieldType.slice(0, -2);
@@ -208,30 +209,54 @@ function parseTypeScript(filePath: string): {
         type: "manyToOne",
         targetTable: baseType.toLowerCase(),
       };
+      // TODO: this makes no sense, fix later
       fieldType = "Text"; // Store foreign key as text
+    } else if (fieldType.includes("<")) {
+      const i = fieldType.indexOf("<");
+      const j = fieldType.indexOf(">");
+      const type = fieldType.slice(i + 1, j);
+      let relation = fieldType.slice(0, i);
+      relation = relation[0].toLowerCase() + relation.slice(1);
+      if (
+        ["manyToOne", "oneToMany", "oneToOne", "manyToMany"].includes(relation)
+      ) {
+        relationship = {
+          type: relation as
+            | "manyToOne"
+            | "oneToMany"
+            | "oneToOne"
+            | "manyToMany",
+          targetTable: type,
+        };
+      }
+
+      // fieldType = "Text"; // Store foreign key as text
     }
     // Check for direct type references that could be relationships
-    else if (fieldType.match(/^[A-Z][a-zA-Z]*$/)) {
-      relationship = {
-        type: "manyToOne",
-        targetTable: fieldType.toLowerCase(),
-      };
-      fieldType = "Text"; // Store foreign key as text
-    }
+    // This makes no sense , at all;
+    // else if (fieldType.match(/^[A-Z][a-zA-Z]*$/)) {
+    //   relationship = {
+    //     type: "manyToOne",
+    //     targetTable: fieldType.toLowerCase(),
+    //   };
+    //   fieldType = "Text"; // Store foreign key as text
+    // }
 
     // Map TypeScript types to CoreDBPlus types
     const coreDBType = mapToCoreDBType(fieldType);
 
     // Check for decorators from JSDoc comments
     const jsDocTags = ts.getJSDocTags(member);
-    const isPrimaryKey = jsDocTags.some(
-      (tag) => tag.tagName.text === "primaryKey"
-    );
-    const isIndexed = jsDocTags.some((tag) => tag.tagName.text === "indexed");
+    const isPrimaryKey = fieldType.startsWith("PrimaryKey<");
+    const isIndexed =
+      fieldType.startsWith("Indexed<") || fieldType.startsWith("Unique<");
 
     const field: TypeField = {
       name: fieldName,
-      type: { kind: "primitive", value: coreDBType },
+      type: {
+        kind: relationship ? "reference" : "primitive",
+        value: coreDBType,
+      },
       optional: member.questionToken !== undefined,
       decorators: [],
       comments: [],
@@ -253,13 +278,24 @@ function parseTypeScript(filePath: string): {
         field.decorators = [];
       }
       field.decorators.push("PrimaryKey");
+      const i = fieldType.indexOf("<");
+      const j = fieldType.indexOf(">");
+      const type = fieldType.slice(i + 1, j);
+      const index = fieldType.slice(0, i);
+      field.type.value = type;
     }
 
     if (isIndexed) {
       if (!field.decorators) {
         field.decorators = [];
       }
-      field.decorators.push("Indexed");
+      const i = fieldType.indexOf("<");
+      const j = fieldType.indexOf(">");
+      const type = fieldType.slice(i + 1, j);
+      const index =
+        fieldType.slice(0, i).toLowerCase() === "unique" ? "Unique" : "Default";
+      field.decorators.push(index);
+      field.type.value = type;
     }
 
     return field;
@@ -401,15 +437,21 @@ function convertToCoreDBPlusDefinitions(
     output += `  fields: [\n`;
 
     for (const field of typeDef.fields) {
+      if (field.type.kind === "reference") continue;
       const fieldType = getFieldType(field);
       const isRequired = !field.optional;
-      const isIndexed = field.decorators?.includes("Indexed") || false;
+      const isIndexed =
+        field.decorators?.includes("Default") ||
+        field.decorators?.includes("Unique");
+
       const isPrimaryKey = field.decorators?.includes("PrimaryKey") || false;
+
+      if (isPrimaryKey) continue;
 
       output += `    { name: "${
         field.name
       }", type: "${fieldType}", required: ${isRequired}${
-        isIndexed ? ', indexed: "Default"' : ""
+        isIndexed ? `, indexed: "${field.decorators![0]}"` : ""
       }${isPrimaryKey ? ", primaryKey: true" : ""} },\n`;
     }
 
@@ -418,10 +460,25 @@ function convertToCoreDBPlusDefinitions(
   }
 
   // Create relationships
+  // TODO: oneToOne should be a lookup field, but as they are actually the same, it doesn't
+  // really matter
+
   if (relationships.length > 0) {
+    const p = new Map<string, string>();
     output += "// Create relationships\n";
     for (const rel of relationships) {
-      output += `await db.schemaConnect("${rel.fromTable.toLowerCase()}", "${rel.toTable.toLowerCase()}");\n`;
+      const x = [rel.toTable.toLowerCase(), rel.fromTable.toLowerCase()]
+        .sort()
+        .join("_");
+      if (p.has(x)) {
+        continue;
+      }
+      p.set(x, x);
+      if (rel.type === "manyToOne") {
+        output += `await db.schemaConnect("${rel.toTable.toLowerCase()}", "${rel.fromTable.toLowerCase()}");\n`;
+      } else {
+        output += `await db.schemaConnect("${rel.fromTable.toLowerCase()}", "${rel.toTable.toLowerCase()}");\n`;
+      }
     }
   }
 
@@ -438,22 +495,23 @@ function getFieldType(field: TypeField): string {
   if (field.type.kind === "primitive") {
     const value = field.type.value;
     if (typeof value === "string") {
-      if (value === "string") return "Text";
-      if (value === "number") return "Integer";
-      if (value === "boolean") return "Boolean";
-      if (value === "date") return "Date";
-      if (value === "datetime") return "Datetime";
-      if (value === "time") return "Time";
-      if (value === "binary") return "Binary";
-      if (value === "uuid") return "UUID";
-      if (value === "password") return "Password";
-      if (value === "currency") return "Currency";
-      if (value === "float") return "Float";
-      if (value === "double") return "Double";
-      if (value === "decimal") return "Decimal";
-      if (value === "createdat") return "CreatedAt";
-      if (value === "updatedat") return "UpdatedAt";
-      if (value === "enum") return "Enum";
+      const _value = value.toLowerCase();
+      if (_value === "string") return "Text";
+      if (_value === "number") return "Integer";
+      if (_value === "boolean") return "Boolean";
+      if (_value === "date") return "Datetime"; // TODO: need to figure something out here, with some Generic
+      if (_value === "datetime") return "Datetime";
+      if (_value === "time") return "Time";
+      if (_value === "binary") return "Binary";
+      if (_value === "uuid") return "UUID";
+      if (_value === "password") return "Password";
+      if (_value === "currency") return "Currency";
+      if (_value === "float") return "Float";
+      if (_value === "double") return "Double";
+      if (_value === "decimal") return "Decimal";
+      if (_value === "createdat") return "CreatedAt";
+      if (_value === "updatedat") return "UpdatedAt";
+      if (_value === "enum") return "Enum";
     }
   } else if (field.type.kind === "reference") {
     const value = field.type.value;
@@ -467,7 +525,13 @@ function getFieldType(field: TypeField): string {
   }
 
   // Default to Text for unknown types
-  return "Text";
+  const notFound = field.type.value as string;
+  if (!notFound) {
+    throw new Error(
+      `Unknown field type: ${field.type} for field ${field.name}`
+    );
+  }
+  return notFound;
 }
 
 // Main function
