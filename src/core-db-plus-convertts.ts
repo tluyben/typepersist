@@ -444,7 +444,10 @@ function convertToCoreDBPlusDefinitions(
         field.decorators?.includes("Default") ||
         field.decorators?.includes("Unique");
 
-      const isPrimaryKey = field.decorators?.includes("PrimaryKey") || false;
+      const isPrimaryKey =
+        field.name.toLowerCase() === "id" ||
+        field.decorators?.includes("PrimaryKey") ||
+        false;
 
       if (isPrimaryKey) continue;
 
