@@ -61,7 +61,8 @@ describe("CoreDBPlus Transformer Integration", () => {
       // Create a temporary file with the schema and execute it
       const schemaFile = path.join(tempDir, "schema-exec.ts");
       fs.writeFileSync(schemaFile, schema);
-      await import(schemaFile);
+      const createTables = (await import(schemaFile)).default;
+      await createTables(db);
 
       // Insert test data
       const testUser = {
@@ -98,7 +99,8 @@ describe("CoreDBPlus Transformer Integration", () => {
       // Create a temporary file with the schema and execute it
       const schemaFile = path.join(tempDir, "schema-exec.ts");
       fs.writeFileSync(schemaFile, schema);
-      await import(schemaFile);
+      const createTables = (await import(schemaFile)).default;
+      await createTables(db);
 
       // Insert product without description
       const product1 = {
@@ -148,7 +150,8 @@ describe("CoreDBPlus Transformer Integration", () => {
       // Create a temporary file with the schema and execute it
       const schemaFile = path.join(tempDir, "schema-exec.ts");
       fs.writeFileSync(schemaFile, schema);
-      await import(schemaFile);
+      const createTables = (await import(schemaFile)).default;
+      await createTables(db);
 
       // Create user and profile
       const userId = await db.insert("user", { name: "John Doe" });
@@ -199,7 +202,8 @@ describe("CoreDBPlus Transformer Integration", () => {
       // Create a temporary file with the schema and execute it
       const schemaFile = path.join(tempDir, "schema-exec.ts");
       fs.writeFileSync(schemaFile, schema);
-      await import(schemaFile);
+      const createTables = (await import(schemaFile)).default;
+      await createTables(db);
 
       // Create user and posts
       const userId = await db.insert("user", { name: "John Doe" });
@@ -252,7 +256,8 @@ describe("CoreDBPlus Transformer Integration", () => {
       // Create a temporary file with the schema and execute it
       const schemaFile = path.join(tempDir, "schema-exec.ts");
       fs.writeFileSync(schemaFile, schema);
-      await import(schemaFile);
+      const createTables = (await import(schemaFile)).default;
+      await createTables(db);
 
       // Insert test data
       await db.insert("user", {
