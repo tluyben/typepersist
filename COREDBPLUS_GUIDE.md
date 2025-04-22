@@ -29,8 +29,8 @@ await db.createTable({
   name: "users",
   fields: [
     { name: "name", type: "Text", required: true },
-    { name: "email", type: "Text", indexed: true },
-    { name: "age", type: "Integer" },
+    { name: "email", type: "Text", indexed: "Unique" },
+    { name: "age", type: "Integer", indexed: "Default" },
   ],
 });
 
