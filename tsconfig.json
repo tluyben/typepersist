@@ -17,7 +17,14 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true
+    // Remove rootDir to allow more flexibility
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "tests", "examples", "tsconfig.tsbuildinfo"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "node_modules",
+    "tests",
+    "examples",
+    "dist",
+    "tsconfig.tsbuildinfo"
+  ]
 }

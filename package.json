@@ -1,6 +1,6 @@
 {
   "name": "typepersist",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A TypeScript library for type-safe database operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,6 +11,9 @@
     "cli": "tsx src/core-db-plus-cli.ts",
     "transform": "tsx src/core-db-plus-convertts.ts"
   },
+  "files": [
+    "dist/**/*"
+  ],
   "bin": {
     "typepersist": "./dist/cli.js",
     "typepersist-transform": "./dist/core-db-plus-convertts.js"
