@@ -6,7 +6,7 @@ import {
   QueryPlus,
   TableDefinitionPlus,
   WherePlus,
-} from "./core-db-plus";
+} from "./basetypes";
 
 // SQLite interface that provides execSql and querySql methods
 export interface SQLiteInterface {

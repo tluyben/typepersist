@@ -1,5 +1,6 @@
 import { Knex, knex } from "knex-fork";
 import _ from "lodash";
+import { FieldDef } from "./basetypes";
 
 export type Sort = {
   fieldId: string;
@@ -73,24 +74,6 @@ export type FieldType =
   | "ReferenceManyToOne"
   | "ReferenceOneToMany"
   | "ReferenceManyToMany";
-
-export type FieldDef = {
-  name: string;
-  type: FieldType;
-  minimum?: number;
-  maximum?: number;
-  indexed?: "Default" | "Unique" | "Foreign";
-  precision?: number;
-  required?: boolean;
-  ordering?: number;
-  defaultValue?: string;
-  system?: boolean;
-  referenceName?: string;
-  options?: string[]; // Required for Enum type
-  indexName?: string;
-  foreignTable?: string; // Required for Reference types
-  indexedFields?: string[]; // Required for Reference types
-};
 
 export type TableDefinition = {
   name: string;

@@ -1,5 +1,5 @@
 import fs from "fs";
-import { FieldType, QueryPlus, TableDefinitionPlus } from "../src/core-db-plus";
+import { FieldType, QueryPlus, TableDefinitionPlus } from "../src/basetypes";
 import { SQLDBPlus } from "../src/sql-db-plus";
 import { SQLiteAdapter } from "../src/sqlite-adapter";
 
